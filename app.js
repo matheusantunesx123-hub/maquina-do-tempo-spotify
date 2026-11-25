@@ -3,6 +3,8 @@
 
   const state = {
     clientId: "",
+    lastfmApiKey: "",
+    openProvider: "listenbrainz",
     bundle: null,
     activeReportId: null,
     activeReport: null,
@@ -55,7 +57,7 @@
       img.crossOrigin = "anonymous";
       img.loading = "eager";
       img.decoding = "async";
-      img.alt = altText || fallbackLabel || "Capa do Spotify";
+      img.alt = altText || fallbackLabel || "Capa";
       img.src = url;
       img.addEventListener("error", () => {
         wrap.innerHTML = "";
@@ -89,18 +91,43 @@
 
   function refreshConfigUI() {
     state.clientId = window.SpotifyAppConfig.resolveClientId();
-    const redirectUri = window.SpotifyAppConfig.getRedirectUri();
-    els.inputRedirectUri.value = redirectUri;
+    state.lastfmApiKey = window.SpotifyAppConfig.resolveLastfmApiKey();
+    els.inputRedirectUri.value = window.SpotifyAppConfig.getRedirectUri();
     els.inputClientId.value = state.clientId;
+    els.inputLastfmKey.value = state.lastfmApiKey;
 
     if (state.clientId) {
       els.clientIdStatus.textContent = "Client ID ativo";
       els.clientIdStatus.className = "mono-badge";
-      els.btnSpotifyLogin.disabled = false;
     } else {
       els.clientIdStatus.textContent = "Aguardando Client ID";
       els.clientIdStatus.className = "mono-badge amber";
-      els.btnSpotifyLogin.disabled = false;
+    }
+
+    syncProviderFormUI();
+  }
+
+  function syncProviderFormUI() {
+    const isLastfm = state.openProvider === "lastfm";
+    els.providerTabs.querySelectorAll("[data-provider]").forEach((btn) => {
+      const active = btn.dataset.provider === state.openProvider;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", String(active));
+    });
+
+    els.btnToggleLastfmKey.hidden = !isLastfm;
+    if (!isLastfm) {
+      els.lastfmKeyDrawer.hidden = true;
+      els.inputOpenUsername.placeholder = "ex: iliekcomputers";
+      els.providerHint.innerHTML =
+        `Ainda não vinculou? <a href="https://listenbrainz.org/settings/music-services/details/" target="_blank" rel="noopener noreferrer">Conectar Spotify ao ListenBrainz grátis em 1 clique</a>.`;
+    } else {
+      els.inputOpenUsername.placeholder = "ex: seu_usuario_lastfm";
+      if (!state.lastfmApiKey) {
+        els.lastfmKeyDrawer.hidden = false;
+      }
+      els.providerHint.innerHTML =
+        `Conecte seu Spotify no Last.fm em <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> (100% gratuito e ilimitado).`;
     }
   }
 
@@ -122,9 +149,11 @@
     els.btnJumpStudio.hidden = false;
 
     const isApi = bundle.mode === "spotify_api";
-    els.btnRefreshData.hidden = !isApi;
+    const isOpen = bundle.mode === "listenbrainz" || bundle.mode === "lastfm";
+    els.btnRefreshData.hidden = !(isApi || isOpen);
     els.btnLogout.hidden = !isApi;
     els.btnExportBackup.hidden = !isApi;
+    els.monthTravelWrap.hidden = !bundle.canPickAnyMonth;
 
     const prof = bundle.profile || { display_name: "Amigo", handle: "@meu_spotify" };
     els.headerProfile.hidden = false;
@@ -153,12 +182,22 @@
       els.sourceModeTag.textContent = "SPOTIFY API · AO VIVO";
       const vs = bundle.vaultStats || {};
       els.archiveStats.textContent =
-        `${vs.monthsSaved || 1} mês(es) salvo(s) neste aparelho · ${vs.recentCachedThisMonth || 0} plays recentes cacheados`;
+        `${vs.monthsSaved || 1} mês(es) salvo(s) neste aparelho · ${vs.recentCachedThisMonth || 0} plays recentes`;
+    } else if (bundle.mode === "listenbrainz") {
+      els.sourceModeTag.textContent = "LISTENBRAINZ · ILIMITADO";
+      const at = bundle.allTime;
+      els.archiveStats.textContent =
+        `@${bundle.providerUsername} · ${fmtNum(at.total_plays)} reproduções · ${at.months_count} mês(es)`;
+    } else if (bundle.mode === "lastfm") {
+      els.sourceModeTag.textContent = "LAST.FM · ILIMITADO";
+      const at = bundle.allTime;
+      els.archiveStats.textContent =
+        `@${bundle.providerUsername} · ${fmtNum(at.total_plays)} scrobbles · ${at.months_count} mês(es)`;
     } else if (bundle.isDemo) {
       els.sourceModeTag.textContent = "MODO DEMONSTRAÇÃO";
       const at = bundle.allTime;
       els.archiveStats.textContent =
-        `${fmtNum(at.total_plays)} reproduções · ${fmtNum(at.total_minutes)} min (${at.total_hours} h) · ${at.months_count} meses fictícios`;
+        `${fmtNum(at.total_plays)} reproduções · ${fmtNum(at.total_minutes)} min (${at.total_hours} h) · ${at.months_count} meses`;
     } else {
       els.sourceModeTag.textContent = "HISTÓRICO IMPORTADO";
       const at = bundle.allTime;
@@ -204,7 +243,7 @@
       <span class="spotlight-kicker">${escapeHtml(kicker)}</span>
       <h2 class="spotlight-name" title="${escapeHtml(title)}">${escapeHtml(title)}</h2>
       <p class="spotlight-meta" title="${escapeHtml(meta)}">${escapeHtml(meta)}</p>
-      ${spotifyUrl ? `<a class="spotlight-link" href="${escapeHtml(spotifyUrl)}" target="_blank" rel="noopener noreferrer">Ouvir no Spotify</a>` : ""}
+      ${spotifyUrl ? `<a class="spotlight-link" href="${escapeHtml(spotifyUrl)}" target="_blank" rel="noopener noreferrer">Ouvir</a>` : ""}
     `;
   }
 
@@ -220,7 +259,7 @@
     els.editionBadge.textContent = report.edition_tag || "CÁPSULA SONORA";
     els.personalityPill.textContent = s.personality_tag;
     els.coverageNote.textContent = report.hasExactCounts
-      ? `${s.active_days} dias ativos no mês`
+      ? `${s.active_days || 0} dias ativos no mês`
       : `${s.unique_artists} artistas · ${s.unique_tracks} faixas analisadas`;
     els.monthTitle.textContent = report.label;
     els.personalitySubtitle.textContent = s.personality_subtitle;
@@ -235,7 +274,7 @@
       a1
         ? (report.hasExactCounts
           ? `${fmtNum(a1.plays)} reproduções · ${fmtNum(a1.minutes)} min`
-          : ((a1.genres && a1.genres.slice(0, 2).join(" · ")) || "Líder do período no Spotify"))
+          : ((a1.genres && a1.genres.slice(0, 2).join(" · ")) || "Líder do período"))
         : "Sem registros",
       a1 && a1.image,
       a1 && a1.url
@@ -255,7 +294,7 @@
     );
 
     if (report.hasExactCounts) {
-      els.kpi1Label.textContent = "Minutos ouvidos";
+      els.kpi1Label.textContent = report.isEstimatedMinutes ? "Minutos (est.)" : "Minutos ouvidos";
       els.kpi1Val.textContent = fmtNum(s.total_minutes);
       const d = s.delta_vs_prev;
       if (d && d.minutes_pct !== null) {
@@ -277,9 +316,13 @@
         : `${fmtNum(s.unique_tracks)} faixas · ${fmtNum(s.unique_albums)} álbuns`;
 
       const pd = s.peak_day || {};
-      els.kpi4Label.textContent = "Dia mais musical";
-      els.kpi4Val.textContent = pd.day ? `${String(pd.day).padStart(2, "0")}/${String(report.month_number).padStart(2, "0")} (${pd.weekday_label})` : "—";
-      els.kpi4Sub.textContent = pd.plays ? `${fmtNum(pd.plays)} plays · ${fmtNum(pd.minutes)} min` : "—";
+      els.kpi4Label.textContent = pd.day ? "Dia mais musical" : "Hora de pico";
+      els.kpi4Val.textContent = pd.day
+        ? `${String(pd.day).padStart(2, "0")}/${String(report.month_number).padStart(2, "0")} (${pd.weekday_label})`
+        : (s.peak_hour ? s.peak_hour.label : "—");
+      els.kpi4Sub.textContent = pd.day
+        ? `${fmtNum(pd.plays)} plays · ${fmtNum(pd.minutes)} min`
+        : (s.peak_hour ? s.peak_hour.period : "—");
     } else {
       els.kpi1Label.textContent = "Gênero nº 1";
       els.kpi1Val.textContent = s.top_genre_label || "Mix";
@@ -287,15 +330,15 @@
 
       els.kpi2Label.textContent = "Artistas no Top";
       els.kpi2Val.textContent = fmtNum(s.unique_artists);
-      els.kpi2Sub.textContent = `${fmtNum(s.unique_albums)} álbuns diferentes no ranking`;
+      els.kpi2Sub.textContent = `${fmtNum(s.unique_albums)} álbuns diferentes`;
 
       els.kpi3Label.textContent = "Descobertas";
       els.kpi3Val.textContent = fmtNum(s.discoveries_count ?? (report.new_discoveries || []).length);
       els.kpi3Sub.textContent = report.id === "short_term"
-        ? "Fora do seu Top histórico (long_term)"
+        ? "Fora do seu Top histórico"
         : "Artistas no topo do período";
 
-      const ph = s.peak_hour || { label: "—", period: "Noite", plays: 0 };
+      const ph = s.peak_hour || { label: "—", period: "Noite" };
       els.kpi4Label.textContent = "Hora de pico";
       els.kpi4Val.textContent = ph.label;
       els.kpi4Sub.textContent = s.recent_plays_count
@@ -381,8 +424,8 @@
 
   function renderRankings(report) {
     els.rankingsNote.textContent = report.hasExactCounts
-      ? "Ordenado por reproduções reais registradas no seu histórico."
-      : "Ranking oficial Spotify ordenado por afinidade/escuta no período (variação compara com 6 meses).";
+      ? "Ordenado por reproduções reais registradas no período."
+      : "Ranking ordenado por escuta no período.";
 
     const tLimit = state.tracksExpanded ? 20 : 5;
     const aLimit = state.artistsExpanded ? 20 : 5;
@@ -408,11 +451,11 @@
 
     const obsInfo = document.createElement("div");
     obsInfo.className = "obsession-info";
-    let statLine = "Faixa nº 1 deste período no Spotify";
+    let statLine = "Faixa nº 1 deste período";
     if (obs.max_day_date) {
       statLine = `Recorde: ${fmtNum(obs.max_day_plays)} plays em ${obs.max_day_date.split("-").reverse().join("/")}`;
     } else if (obs.recent_plays > 0) {
-      statLine = `Tocou ${obs.recent_plays}x nas suas últimas reproduções`;
+      statLine = `Tocou ${obs.recent_plays}x nas últimas reproduções`;
     }
     obsInfo.innerHTML = `
       <h4>${escapeHtml(obs.name || "—")}</h4>
@@ -421,7 +464,6 @@
     `;
     els.obsessionContent.append(obsCover, obsInfo);
 
-    // Genres
     els.repeatBadge.textContent = report.summary.repeat_ratio
       ? `Repeat ${report.summary.repeat_ratio.toFixed(2)}x`
       : (report.summary.top_genre_label || "Perfil");
@@ -443,44 +485,46 @@
       const s = report.summary;
       els.genresBody.innerHTML = `
         <p class="empty-note">
-          Histórico importado offline não traz tags de gênero por artista, mas mostra sua variedade real:
-          <strong>${fmtNum(s.unique_albums)} álbuns</strong>, <strong>${fmtNum(s.unique_tracks)} faixas</strong>
-          e média de <strong>${(s.repeat_ratio || 1).toFixed(2)}x por música</strong>.
+          Variedade real do mês: <strong>${fmtNum(s.unique_albums)} álbuns</strong>,
+          <strong>${fmtNum(s.unique_tracks)} faixas</strong> e média de
+          <strong>${(s.repeat_ratio || 1).toFixed(2)}x por música</strong>.
         </p>
       `;
     }
 
-    // Albums
     const albums = (report.top_albums || []).slice(0, 6);
     els.albumsCountBadge.textContent = `${fmtNum(report.summary.unique_albums)} no total`;
     els.topAlbumsGrid.innerHTML = "";
-    albums.forEach((al) => {
-      const card = document.createElement("div");
-      card.className = "album-card";
-      const cov = document.createElement("div");
-      cov.className = "album-cover";
-      const ac = createCoverImage(al.image, al.name, al.name);
-      while (ac.firstChild) cov.appendChild(ac.firstChild);
-      const meta = document.createElement("div");
-      meta.className = "album-meta";
-      const metricLine = al.plays
-        ? `${fmtNum(al.plays)} plays · ${fmtNum(al.minutes)} min`
-        : `${al.unique_tracks} faixa(s) no seu Top 50`;
-      meta.innerHTML = `
-        <p class="album-title" title="${escapeHtml(al.name)}">${escapeHtml(al.name)}</p>
-        <p class="album-artist" title="${escapeHtml(al.artist_name)}">${escapeHtml(al.artist_name)}</p>
-        <span class="album-plays">${escapeHtml(metricLine)}</span>
-      `;
-      card.append(cov, meta);
-      els.topAlbumsGrid.appendChild(card);
-    });
+    if (!albums.length) {
+      els.topAlbumsGrid.innerHTML = `<p class="empty-note span-2">Sem álbuns destacados neste recorte.</p>`;
+    } else {
+      albums.forEach((al) => {
+        const card = document.createElement("div");
+        card.className = "album-card";
+        const cov = document.createElement("div");
+        cov.className = "album-cover";
+        const ac = createCoverImage(al.image, al.name, al.name);
+        while (ac.firstChild) cov.appendChild(ac.firstChild);
+        const meta = document.createElement("div");
+        meta.className = "album-meta";
+        const metricLine = al.plays
+          ? `${fmtNum(al.plays)} plays · ${fmtNum(al.minutes)} min`
+          : `${al.unique_tracks} faixa(s) no Top 50`;
+        meta.innerHTML = `
+          <p class="album-title" title="${escapeHtml(al.name)}">${escapeHtml(al.name)}</p>
+          <p class="album-artist" title="${escapeHtml(al.artist_name)}">${escapeHtml(al.artist_name)}</p>
+          <span class="album-plays">${escapeHtml(metricLine)}</span>
+        `;
+        card.append(cov, meta);
+        els.topAlbumsGrid.appendChild(card);
+      });
+    }
 
-    // Discoveries
     const discoveries = report.new_discoveries || [];
     els.discoveriesGrid.innerHTML = "";
     if (!discoveries.length) {
       els.discoveriesBadge.textContent = report.hasExactCounts ? "Mês inicial" : "Comparado ao histórico";
-      els.discoveriesGrid.innerHTML = `<p class="empty-note span-2">Nenhuma descoberta inédita destacada neste recorte específico.</p>`;
+      els.discoveriesGrid.innerHTML = `<p class="empty-note span-2">Nenhuma descoberta inédita destacada neste recorte.</p>`;
     } else {
       els.discoveriesBadge.textContent = `${discoveries.length} destaque(s)`;
       discoveries.forEach((d) => {
@@ -509,7 +553,7 @@
   }
 
   function renderRhythm(report) {
-    els.rhythmNote.textContent = report.rhythm_source_note || "Horários no fuso local do navegador.";
+    els.rhythmNote.textContent = report.rhythm_source_note || "Horários no fuso local.";
     const hourly = report.hourly_distribution || new Array(24).fill(0);
     const maxH = Math.max(1, ...hourly);
     const peakHour = report.summary.peak_hour || { hour: 0, label: "00h", plays: 0 };
@@ -776,6 +820,16 @@
     }
   }
 
+  function renderActiveReportAll() {
+    if (!state.activeReport) return;
+    renderTimelineBar();
+    renderHero(state.activeReport);
+    renderRankings(state.activeReport);
+    renderCuradoria(state.activeReport);
+    renderRhythm(state.activeReport);
+    refreshPreview();
+  }
+
   function selectReport(reportId) {
     if (!state.bundle || !state.bundle.reports.has(reportId)) return;
     state.activeReportId = reportId;
@@ -784,12 +838,86 @@
     state.tracksExpanded = false;
     state.artistsExpanded = false;
 
-    renderTimelineBar();
-    renderHero(state.activeReport);
-    renderRankings(state.activeReport);
-    renderCuradoria(state.activeReport);
-    renderRhythm(state.activeReport);
-    refreshPreview();
+    renderActiveReportAll();
+
+    if (!state.activeReport.isDemo && !state.activeReport._coversEnriched && window.CoverEnricher) {
+      els.previewStatus.textContent = "Buscando capas HD...";
+      window.CoverEnricher.enrichReportCovers(state.activeReport, () => {
+        if (state.activeReportId === reportId) {
+          renderActiveReportAll();
+        }
+      }).then((changed) => {
+        if (!changed && state.activeReportId === reportId) {
+          els.previewStatus.textContent = "Pronto em 1080px";
+        }
+      });
+    }
+  }
+
+  async function loadOpenProvider(provider, username, monthOpt) {
+    const cleanUser = String(username || "").trim().replace(/^@+/, "");
+    if (!cleanUser) {
+      setStatusBanner("Informe seu nome de usuário", "Digite o @usuario do serviço escolhido para gerar sua Máquina do Tempo.");
+      return;
+    }
+
+    if (provider === "lastfm") {
+      const apiKey = window.SpotifyAppConfig.resolveLastfmApiKey();
+      if (!apiKey) {
+        els.lastfmKeyDrawer.hidden = false;
+        els.inputLastfmKey.focus();
+        setStatusBanner(
+          "Falta configurar a API Key do Last.fm",
+          "Crie uma chave gratuita em last.fm/api/account/create e cole no campo abaixo — ela libera acesso ilimitado para qualquer usuário!"
+        );
+        return;
+      }
+      setStatusBanner(`Consultando @${cleanUser} no Last.fm...`, "Buscando scrobbles e organizando sua Máquina do Tempo mensal.", true);
+      try {
+        const bundle = await window.OpenMusicProviders.fetchLastfmUser(cleanUser, apiKey, monthOpt || null);
+        setStatusBanner("", "");
+        mergeIntoCurrentBundleOrShow(bundle);
+      } catch (err) {
+        setStatusBanner("Não foi possível carregar Last.fm", err.message);
+      }
+    } else {
+      setStatusBanner(`Consultando @${cleanUser} no ListenBrainz...`, "Carregando reproduções e calculando seu resumo mensal.", true);
+      try {
+        const bundle = await window.OpenMusicProviders.fetchListenBrainzUser(cleanUser, monthOpt || null);
+        setStatusBanner("", "");
+        mergeIntoCurrentBundleOrShow(bundle);
+      } catch (err) {
+        setStatusBanner("Não foi possível carregar ListenBrainz", err.message);
+      }
+    }
+  }
+
+  function mergeIntoCurrentBundleOrShow(newBundle) {
+    if (
+      state.bundle &&
+      state.bundle.mode === newBundle.mode &&
+      state.bundle.providerUsername === newBundle.providerUsername
+    ) {
+      newBundle.reports.forEach((rep, id) => {
+        state.bundle.reports.set(id, rep);
+        if (!state.bundle.tabs.some((t) => t.id === id)) {
+          state.bundle.tabs.push({ id, label: rep.label, meta: `${rep.summary.total_plays || 0} plays` });
+        }
+      });
+      state.bundle.tabs.sort((a, b) => b.id.localeCompare(a.id));
+      state.bundle.evolution = Array.from(state.bundle.reports.values())
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((r) => ({
+          month: r.id,
+          short_label: r.short_label,
+          label: r.label,
+          total_minutes: r.summary.total_minutes || 0,
+          total_plays: r.summary.total_plays || 0
+        }));
+      selectReport(newBundle.defaultId);
+    } else {
+      showDashboard(newBundle);
+    }
   }
 
   async function loadSpotifySession(token) {
@@ -804,7 +932,7 @@
         showWelcomeScreen();
         setStatusBanner(
           "Conta fora da lista de acesso (Development Mode — Erro 403)",
-          "O Spotify exige que o dono do app adicione seu e-mail do Spotify na aba User Management (máximo de 5 amigos por Client ID). Enquanto isso, você pode usar a Opção 2 ao lado (Importar Histórico .json/.zip) sem nenhum limite!"
+          "O Spotify limita o login OAuth direto a 5 e-mails cadastrados no Developer Dashboard. Use a Opção 1 (ListenBrainz / Last.fm) ou a Opção 2 (Importar Histórico .json/.zip) — ambas são 100% ilimitadas!"
         );
       } else if (err.code === "UNAUTHORIZED_401") {
         window.SpotifyAuth.logout();
@@ -818,7 +946,7 @@
 
   async function handleHistoryUpload(files) {
     if (!files || !files.length) return;
-    setStatusBanner("Processando arquivos do Spotify...", "Lendo reproduções e montando todos os meses no seu navegador.", true);
+    setStatusBanner("Processando histórico do Spotify...", "Lendo reproduções, montando meses e buscando capas em HD.", true);
     try {
       const bundle = await window.SpotifyHistoryImporter.parseHistoryFiles(files);
       setStatusBanner("", "");
@@ -829,6 +957,37 @@
   }
 
   function bindEvents() {
+    els.providerTabs.querySelectorAll("[data-provider]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.openProvider = btn.dataset.provider;
+        syncProviderFormUI();
+      });
+    });
+
+    els.btnToggleLastfmKey.addEventListener("click", () => {
+      els.lastfmKeyDrawer.hidden = !els.lastfmKeyDrawer.hidden;
+    });
+
+    els.btnSaveLastfmKey.addEventListener("click", () => {
+      const saved = window.SpotifyAppConfig.saveCustomLastfmApiKey(els.inputLastfmKey.value);
+      refreshConfigUI();
+      setStatusBanner(
+        saved ? "Last.fm API Key salva!" : "API Key removida",
+        saved ? "Agora digite qualquer @usuario do Last.fm e clique em Gerar Máquina do Tempo." : "Cole uma chave válida do Last.fm.",
+        Boolean(saved)
+      );
+    });
+
+    els.openProviderForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await loadOpenProvider(state.openProvider, els.inputOpenUsername.value, els.inputOpenMonth.value);
+    });
+
+    els.btnTravelMonth.addEventListener("click", async () => {
+      if (!state.bundle || !els.inputTravelMonth.value) return;
+      await loadOpenProvider(state.bundle.mode, state.bundle.providerUsername, els.inputTravelMonth.value);
+    });
+
     els.btnToggleConfig.addEventListener("click", () => {
       const open = els.configDrawer.hidden;
       els.configDrawer.hidden = !open;
@@ -840,7 +999,7 @@
       refreshConfigUI();
       setStatusBanner(
         saved ? "Client ID salvo neste navegador" : "Client ID removido",
-        saved ? "Agora clique em Entrar com Spotify para conectar." : "Cole um Client ID válido para usar o login oficial.",
+        saved ? "Agora clique em Entrar com Spotify para conectar." : "Cole um Client ID válido.",
         Boolean(saved)
       );
     });
@@ -864,7 +1023,7 @@
         els.inputClientId.focus();
         setStatusBanner(
           "Falta configurar o Client ID do Spotify",
-          "Abra o painel acima, cole o Client ID do app no Spotify Developer Dashboard (com a Redirect URI cadastrada) ou use a Opção 2 / Demonstração."
+          "Para uso ilimitado com qualquer pessoa, recomendamos usar ListenBrainz, Last.fm ou Importar Histórico acima."
         );
         return;
       }
@@ -875,9 +1034,7 @@
       }
     });
 
-    els.inputHistoryFiles.addEventListener("change", (e) => {
-      handleHistoryUpload(e.target.files);
-    });
+    els.inputHistoryFiles.addEventListener("change", (e) => handleHistoryUpload(e.target.files));
 
     ["dragenter", "dragover"].forEach((ev) => {
       els.dropzone.addEventListener(ev, (e) => {
@@ -892,15 +1049,12 @@
       });
     });
     els.dropzone.addEventListener("drop", (e) => {
-      if (e.dataTransfer && e.dataTransfer.files) {
-        handleHistoryUpload(e.dataTransfer.files);
-      }
+      if (e.dataTransfer && e.dataTransfer.files) handleHistoryUpload(e.dataTransfer.files);
     });
 
     els.btnTryDemo.addEventListener("click", () => {
       setStatusBanner("", "");
-      const demo = window.SpotifyHistoryImporter.createDemoDataset();
-      showDashboard(demo);
+      showDashboard(window.SpotifyHistoryImporter.createDemoDataset());
     });
 
     els.btnRestoreBackup.addEventListener("click", () => els.inputBackupFile.click());
@@ -923,9 +1077,14 @@
     });
 
     els.btnRefreshData.addEventListener("click", async () => {
-      const token = await window.SpotifyAuth.getValidAccessToken();
-      if (token) await loadSpotifySession(token);
-      else showWelcomeScreen();
+      if (!state.bundle) return;
+      if (state.bundle.mode === "spotify_api") {
+        const token = await window.SpotifyAuth.getValidAccessToken();
+        if (token) await loadSpotifySession(token);
+        else showWelcomeScreen();
+      } else if (state.bundle.mode === "listenbrainz" || state.bundle.mode === "lastfm") {
+        await loadOpenProvider(state.bundle.mode, state.bundle.providerUsername, null);
+      }
     });
 
     els.btnSwitchSource.addEventListener("click", () => {
@@ -960,7 +1119,6 @@
       if (state.activeReport) renderRankings(state.activeReport);
     });
 
-    // Studio
     els.ctrlFormat.querySelectorAll("[data-format]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.exportFormat = btn.dataset.format;
@@ -1024,6 +1182,16 @@
     els.btnSwitchSource = qs("btn-switch-source");
     els.btnLogout = qs("btn-logout");
     els.btnJumpStudio = qs("btn-jump-studio");
+    els.providerTabs = qs("provider-tabs");
+    els.openProviderForm = qs("open-provider-form");
+    els.inputOpenUsername = qs("input-open-username");
+    els.inputOpenMonth = qs("input-open-month");
+    els.btnOpenConnect = qs("btn-open-connect");
+    els.btnToggleLastfmKey = qs("btn-toggle-lastfm-key");
+    els.lastfmKeyDrawer = qs("lastfm-key-drawer");
+    els.inputLastfmKey = qs("input-lastfm-key");
+    els.btnSaveLastfmKey = qs("btn-save-lastfm-key");
+    els.providerHint = qs("provider-hint");
     els.clientIdStatus = qs("client-id-status");
     els.btnSpotifyLogin = qs("btn-spotify-login");
     els.btnToggleConfig = qs("btn-toggle-config");
@@ -1039,6 +1207,9 @@
     els.inputBackupFile = qs("input-backup-file");
     els.sourceModeTag = qs("source-mode-tag");
     els.archiveStats = qs("archive-stats");
+    els.monthTravelWrap = qs("month-travel-wrap");
+    els.inputTravelMonth = qs("input-travel-month");
+    els.btnTravelMonth = qs("btn-travel-month");
     els.btnPrevMonth = qs("btn-prev-month");
     els.btnNextMonth = qs("btn-next-month");
     els.btnExportBackup = qs("btn-export-backup");

@@ -361,7 +361,8 @@
         : (dominantPeriod === "madrugada" ? "Trilha da Madrugada"
           : dominantPeriod === "noite" ? "Coruja Noturna"
           : dominantPeriod === "manha" ? "Ritmo Matinal" : "Sintonia da Tarde");
-      const personalitySubtitle = `Pico às ${String(peakHourIdx).padStart(2, "0")}h no fuso local, com ${artistAgg.size} artistas em ${plays.length} reproduções reais.`;
+      const minNote = options.isEstimatedMinutes ? " (duração estimada por faixa)" : "";
+      const personalitySubtitle = `Pico às ${String(peakHourIdx).padStart(2, "0")}h no fuso local, com ${artistAgg.size} artistas em ${plays.length} reproduções reais${minNote}.`;
 
       const sortedTracks = Array.from(trackAgg.values()).sort((a, b) => b.plays - a.plays || b.totalMs - a.totalMs);
       const currTrackRanks = new Map(sortedTracks.map((t, i) => [t.id, i + 1]));
@@ -517,8 +518,9 @@
         short_label: shortLabel,
         edition_tag: `EDIÇÃO ${monthStr}/${year}`,
         hasExactCounts: true,
+        isEstimatedMinutes: Boolean(options.isEstimatedMinutes),
         isDemo: Boolean(options.isDemo),
-        sourceType: options.isDemo ? "demo" : "history_import",
+        sourceType: options.sourceType || (options.isDemo ? "demo" : "history_import"),
         profile: options.profile || { display_name: "Histórico Importado", handle: "@spotify", image: null },
         summary: summaryObj,
         top_tracks: topTracks,
@@ -680,6 +682,7 @@
 
   global.SpotifyHistoryImporter = {
     parseHistoryFiles,
+    buildReportsFromNormalizedPlays,
     createDemoDataset,
     svgCoverDataUrl
   };

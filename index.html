@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0D0F0E" />
-  <title>Máquina do Tempo Spotify · Edição Amigos</title>
-  <meta name="description" content="Conecte sua conta do Spotify ou importe seu histórico para gerar sua Máquina do Tempo mensal e exportar artes em 1080px para Stories, Feed e Carrossel do Instagram." />
+  <title>Máquina do Tempo Spotify · Versão Amigos (Ilimitado)</title>
+  <meta name="description" content="Gere sua Máquina do Tempo mensal do Spotify via ListenBrainz, Last.fm ou histórico .json/.zip com capas em HD e exporte artes em 1080px para Stories, Feed e Carrossel do Instagram." />
   <meta property="og:title" content="Máquina do Tempo Spotify · Edição Amigos" />
-  <meta property="og:description" content="Entre com seu Spotify, veja seus destaques do mês e exporte para o Instagram." />
+  <meta property="og:description" content="Para quantas pessoas quiser: entre com ListenBrainz, Last.fm ou importe seu histórico do Spotify e exporte para o Instagram." />
   <meta property="og:type" content="website" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230D0F0E'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%231ED760' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='12' fill='none' stroke='%23E89B3C' stroke-width='2.5'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%23F4F1EA'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -30,7 +30,7 @@
         </span>
         <span class="brand-text">
           <strong>Máquina do Tempo</strong>
-          <small>Edição Amigos · Spotify</small>
+          <small>Edição Amigos · Acesso Ilimitado</small>
         </span>
       </a>
 
@@ -51,74 +51,88 @@
     <!-- Banner global de feedback / erro -->
     <div class="wrap" id="status-banner" aria-live="polite"></div>
 
-    <!-- TELA DE BOAS-VINDAS / LOGIN -->
+    <!-- TELA DE BOAS-VINDAS / MULTI-PROVEDOR -->
     <section class="welcome-section" id="welcome-screen" aria-labelledby="welcome-title">
       <div class="wrap">
         <div class="welcome-hero">
-          <span class="mono-tag">100% NO NAVEGADOR · PRIVACIDADE TOTAL</span>
-          <h1 class="welcome-title" id="welcome-title">Sua Máquina do Tempo do Spotify em formato mensal</h1>
+          <span class="mono-tag">USUÁRIOS ILIMITADOS · 100% NO NAVEGADOR</span>
+          <h1 class="welcome-title" id="welcome-title">Sua Máquina do Tempo do Spotify — Para Quantas Pessoas Quiser</h1>
           <p class="welcome-lead">
-            Entre com sua conta Spotify ou importe seu histórico para descobrir seus artistas, músicas, horários de pico e baixar artes em 1080px prontas para postar no Instagram.
+            Digite apenas seu <code>@usuario</code> do ListenBrainz ou Last.fm, ou importe seu histórico oficial do Spotify para gerar sua retrospectiva mensal e baixar artes em 1080px para o Instagram.
           </p>
         </div>
 
         <div class="welcome-grid">
-          <!-- Card OAuth PKCE -->
-          <article class="panel-card auth-card">
+          <!-- CARD 1: ListenBrainz & Last.fm (Ilimitado) -->
+          <article class="panel-card open-card">
             <div class="card-top-meta">
-              <span class="section-kicker">OPÇÃO 1 · LOGIN OFICIAL OAUTH PKCE</span>
-              <span class="mono-badge" id="client-id-status">Verificando Client ID...</span>
+              <span class="section-kicker">OPÇÃO 1 · SEM LIMITE DE PESSOAS</span>
+              <span class="mono-badge">Só digitar @usuario</span>
             </div>
-            <h2>Conectar meu Spotify</h2>
+            <h2>ListenBrainz ou Last.fm</h2>
             <p class="card-desc">
-              Gera imediatamente sua cápsula do <strong>Último Mês (~4 semanas)</strong>, 6 Meses, Todos os Tempos e horários recentes, além de salvar snapshots mensais neste aparelho.
+              Vincule seu Spotify grátis em 10 segundos no ListenBrainz ou Last.fm e digite seu nome de usuário abaixo para viajar para qualquer mês.
             </p>
 
-            <div class="auth-actions">
-              <button type="button" class="btn btn-primary btn-large" id="btn-spotify-login">
-                Entrar com Spotify
+            <div class="segmented provider-tabs" id="provider-tabs" role="tablist" aria-label="Escolha o serviço conectado ao seu Spotify">
+              <button type="button" class="seg-btn is-active" data-provider="listenbrainz" role="tab" aria-selected="true">
+                ListenBrainz (Zero Chave)
               </button>
-              <button type="button" class="btn btn-secondary" id="btn-toggle-config" aria-expanded="false">
-                Configurar Client ID
+              <button type="button" class="seg-btn" data-provider="lastfm" role="tab" aria-selected="false">
+                Last.fm (Mais Popular)
               </button>
             </div>
 
-            <div class="privacy-note">
-              Nenhum servidor armazena seus dados ou senha. A conexão acontece direto entre o seu navegador e a API oficial do Spotify.
-            </div>
+            <form id="open-provider-form" class="provider-form">
+              <div class="form-row-2">
+                <div class="config-row">
+                  <label class="control-label" for="input-open-username">Seu nome de usuário</label>
+                  <input type="text" id="input-open-username" class="text-input" placeholder="ex: seunome" autocomplete="username" required />
+                </div>
 
-            <div class="config-drawer" id="config-drawer" hidden>
-              <div class="config-row">
-                <label class="control-label" for="input-client-id">Spotify Client ID (público)</label>
-                <div class="inline-field">
-                  <input type="text" id="input-client-id" class="text-input" placeholder="Cole os 32 caracteres do Client ID" autocomplete="off" />
-                  <button type="button" class="btn btn-primary" id="btn-save-client-id">Salvar</button>
+                <div class="config-row">
+                  <label class="control-label" for="input-open-month">Mês (opcional)</label>
+                  <input type="month" id="input-open-month" class="text-input" />
                 </div>
               </div>
 
+              <div class="auth-actions">
+                <button type="submit" class="btn btn-primary btn-large" id="btn-open-connect">
+                  Gerar Máquina do Tempo
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-toggle-lastfm-key" hidden>
+                  Configurar API Key
+                </button>
+              </div>
+            </form>
+
+            <div class="config-drawer" id="lastfm-key-drawer" hidden>
               <div class="config-row">
-                <span class="control-label">Redirect URI para cadastrar no Spotify Dashboard</span>
+                <label class="control-label" for="input-lastfm-key">Last.fm API Key (1 chave grátis libera usuários ilimitados)</label>
                 <div class="inline-field">
-                  <input type="text" id="input-redirect-uri" class="text-input" readonly />
-                  <button type="button" class="btn btn-secondary" id="btn-copy-redirect">Copiar URI</button>
+                  <input type="text" id="input-lastfm-key" class="text-input" placeholder="Cole sua API Key do Last.fm" autocomplete="off" />
+                  <button type="button" class="btn btn-primary" id="btn-save-lastfm-key">Salvar Key</button>
                 </div>
               </div>
-
               <p class="config-help">
-                Em <strong>Development Mode</strong> no Spotify Developer Dashboard, o dono do app precisa adicionar o e-mail de cada amigo na aba <em>User Management</em> (até 5 usuários por Client ID).
+                Crie em segundos em <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer">last.fm/api/account/create</a> (basta preencher o nome do app).
               </p>
             </div>
+
+            <p class="provider-hint" id="provider-hint">
+              Ainda não vinculou? <a href="https://listenbrainz.org/settings/music-services/details/" target="_blank" rel="noopener noreferrer">Conectar Spotify ao ListenBrainz em 1 clique</a>.
+            </p>
           </article>
 
-          <!-- Card Importador Offline + Demo -->
+          <!-- CARD 2: Importador Offline + Capas HD -->
           <article class="panel-card import-card">
             <div class="card-top-meta">
-              <span class="section-kicker">OPÇÃO 2 · SEM LIMITE DE USUÁRIOS</span>
-              <span class="mono-badge amber">100% Offline</span>
+              <span class="section-kicker">OPÇÃO 2 · SEM CONTA EXTRA</span>
+              <span class="mono-badge amber">Capas Reais HD</span>
             </div>
             <h2>Importar Histórico (.json ou .zip)</h2>
             <p class="card-desc">
-              Já baixou seus dados do Spotify em <em>Privacidade da conta</em>? Arraste o arquivo <code>.zip</code> ou os <code>Streaming_History_Audio_*.json</code> para reconstruir <strong>todos os seus meses reais</strong> com minutos e calendário completos.
+              Baixou seu histórico oficial na privacidade do Spotify? Arraste o <code>.zip</code> ou os <code>Streaming_History_Audio_*.json</code> — reconstruímos todos os meses e buscamos as capas reais em HD automaticamente.
             </p>
 
             <label class="dropzone" id="dropzone" for="input-history-files">
@@ -137,21 +151,70 @@
               <input type="file" id="input-backup-file" accept=".json,application/json" class="sr-only" />
             </div>
           </article>
+
+          <!-- CARD 3: Spotify OAuth PKCE (Secundário, até 5 amigos na Allowlist) -->
+          <article class="panel-card pkce-secondary-card">
+            <div class="pkce-row">
+              <div class="pkce-info">
+                <div class="card-top-meta">
+                  <span class="section-kicker">OPÇÃO 3 · LOGIN DIRETO SPOTIFY (OAUTH PKCE)</span>
+                  <span class="mono-badge" id="client-id-status">Aguardando Client ID</span>
+                </div>
+                <h3>Login Direto Spotify (até 5 contas cadastradas)</h3>
+                <p class="config-help">
+                  Por regra oficial do Spotify (<em>Development Mode</em>), apps individuais aceitam no máximo 5 e-mails na <em>User Management Allowlist</em>. Ideal para você e até 4 amigos mais próximos.
+                </p>
+              </div>
+              <div class="pkce-actions">
+                <button type="button" class="btn btn-secondary" id="btn-spotify-login">
+                  Entrar com Spotify
+                </button>
+                <button type="button" class="btn btn-ghost" id="btn-toggle-config" aria-expanded="false">
+                  Configurar Client ID
+                </button>
+              </div>
+            </div>
+
+            <div class="config-drawer" id="config-drawer" hidden>
+              <div class="form-row-2">
+                <div class="config-row">
+                  <label class="control-label" for="input-client-id">Spotify Client ID (público)</label>
+                  <div class="inline-field">
+                    <input type="text" id="input-client-id" class="text-input" placeholder="Cole os 32 caracteres do Client ID" autocomplete="off" />
+                    <button type="button" class="btn btn-primary" id="btn-save-client-id">Salvar</button>
+                  </div>
+                </div>
+
+                <div class="config-row">
+                  <span class="control-label">Redirect URI para o Spotify Dashboard</span>
+                  <div class="inline-field">
+                    <input type="text" id="input-redirect-uri" class="text-input" readonly />
+                    <button type="button" class="btn btn-secondary" id="btn-copy-redirect">Copiar URI</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- DASHBOARD PRINCIPAL (VISÍVEL APÓS CONEXÃO / IMPORTAÇÃO / DEMO) -->
+    <!-- DASHBOARD PRINCIPAL -->
     <div id="dashboard-root" hidden>
       <!-- Barra de períodos / meses -->
       <section class="timeline-band" aria-label="Períodos e meses disponíveis">
         <div class="wrap">
           <div class="timeline-top">
             <div class="archive-summary">
-              <span class="mono-tag" id="source-mode-tag">SPOTIFY API</span>
+              <span class="mono-tag" id="source-mode-tag">LISTENBRAINZ</span>
               <span class="archive-stats" id="archive-stats">—</span>
             </div>
             <div class="month-steppers">
+              <div class="month-travel" id="month-travel-wrap" hidden>
+                <label class="sr-only" for="input-travel-month">Escolher outro mês para carregar</label>
+                <input type="month" id="input-travel-month" class="text-input travel-input" />
+                <button type="button" class="btn btn-small" id="btn-travel-month">Carregar mês</button>
+              </div>
               <button type="button" class="btn btn-icon" id="btn-prev-month" aria-label="Período anterior">
                 <span aria-hidden="true">←</span><span>Anterior</span>
               </button>
@@ -251,7 +314,7 @@
         </div>
       </section>
 
-      <!-- Recortes: Obsessão, Gêneros, Álbuns e Descobertas -->
+      <!-- Recortes -->
       <section class="section-block" aria-labelledby="titulo-curadoria">
         <div class="wrap">
           <div class="section-head">
@@ -450,7 +513,7 @@
 
   <footer class="site-footer">
     <div class="wrap footer-inner">
-      <p>Máquina do Tempo Spotify · Edição Amigos · Processamento 100% local no navegador.</p>
+      <p>Máquina do Tempo Spotify · Edição Amigos Ilimitada · Processamento 100% local no navegador.</p>
       <p class="footer-links">
         <a href="https://matheusantunesx123-hub.github.io/Site-Pessoal-ProgWeb-2026/maquina-do-tempo/" target="_blank" rel="noopener noreferrer">Edição do Matheus</a>
         <a href="https://github.com/matheusantunesx123-hub/maquina-do-tempo-spotify" target="_blank" rel="noopener noreferrer">Código-fonte</a>
@@ -460,8 +523,10 @@
 
   <script src="./config.js"></script>
   <script src="./auth.js"></script>
-  <script src="./spotify-client.js"></script>
+  <script src="./cover-enricher.js"></script>
   <script src="./history-importer.js"></script>
+  <script src="./open-providers.js"></script>
+  <script src="./spotify-client.js"></script>
   <script src="./exporter.js"></script>
   <script src="./app.js"></script>
 </body>

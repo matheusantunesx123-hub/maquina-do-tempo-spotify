@@ -2,16 +2,20 @@
   "use strict";
 
   const STORAGE_KEY = "stm_friends_client_id_v1";
+  const LASTFM_STORAGE_KEY = "stm_friends_lastfm_key_v1";
 
   const config = {
-    // Cole aqui o Client ID do seu App no Spotify Developer Dashboard para já deixar pré-configurado para todos os amigos.
+    // Opcional: cole aqui o Client ID do Spotify (limitado a 5 amigos no Development Mode).
     defaultClientId: "",
+    // Opcional: cole aqui 1 API Key gratuita do Last.fm (vale para usuários ilimitados).
+    defaultLastfmApiKey: "",
     scopes: [
       "user-read-private",
       "user-top-read",
       "user-read-recently-played"
     ],
     STORAGE_KEY,
+    LASTFM_STORAGE_KEY,
 
     getRedirectUri() {
       const origin = window.location.origin;
@@ -53,11 +57,45 @@
     saveCustomClientId(clientId) {
       const cleaned = String(clientId || "").trim();
       try {
-        if (cleaned) {
-          localStorage.setItem(STORAGE_KEY, cleaned);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
+        if (cleaned) localStorage.setItem(STORAGE_KEY, cleaned);
+        else localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {}
+      return cleaned;
+    },
+
+    resolveLastfmApiKey() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const fromUrl = (params.get("lastfm_key") || "").trim();
+        if (fromUrl && /^[a-zA-Z0-9]{16,64}$/.test(fromUrl)) {
+          localStorage.setItem(LASTFM_STORAGE_KEY, fromUrl);
+          params.delete("lastfm_key");
+          const cleanSearch = params.toString();
+          const cleanUrl =
+            window.location.pathname +
+            (cleanSearch ? "?" + cleanSearch : "") +
+            (window.location.hash || "");
+          window.history.replaceState({}, "", cleanUrl);
+          return fromUrl;
         }
+      } catch (_) {}
+
+      if (this.defaultLastfmApiKey && this.defaultLastfmApiKey.trim()) {
+        return this.defaultLastfmApiKey.trim();
+      }
+
+      try {
+        return (localStorage.getItem(LASTFM_STORAGE_KEY) || "").trim();
+      } catch (_) {
+        return "";
+      }
+    },
+
+    saveCustomLastfmApiKey(apiKey) {
+      const cleaned = String(apiKey || "").trim();
+      try {
+        if (cleaned) localStorage.setItem(LASTFM_STORAGE_KEY, cleaned);
+        else localStorage.removeItem(LASTFM_STORAGE_KEY);
       } catch (_) {}
       return cleaned;
     }
