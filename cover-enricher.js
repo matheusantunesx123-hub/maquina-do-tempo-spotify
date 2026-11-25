@@ -43,7 +43,7 @@
     return true;
   }
 
-  function jsonpFetch(url, timeoutMs = 4500) {
+  function jsonpFetch(url, timeoutMs = 8000) {
     return new Promise((resolve) => {
       const cbName = `__dzCb_${Date.now()}_${++cbSeq}`;
       const sep = url.includes("?") ? "&" : "?";
@@ -51,11 +51,23 @@
       const script = document.createElement("script");
       let settled = false;
 
-      function cleanup() {
-        try {
-          delete global[cbName];
-        } catch (_) {
-          global[cbName] = undefined;
+      function cleanup(timedOut) {
+        if (timedOut) {
+          // Mantém stub no-op caso o script em voo chegue atrasado, evitando ReferenceError
+          global[cbName] = function () {};
+          setTimeout(() => {
+            try {
+              delete global[cbName];
+            } catch (_) {
+              global[cbName] = undefined;
+            }
+          }, 45000);
+        } else {
+          try {
+            delete global[cbName];
+          } catch (_) {
+            global[cbName] = undefined;
+          }
         }
         if (script.parentNode) script.parentNode.removeChild(script);
       }
@@ -63,7 +75,7 @@
       const timer = setTimeout(() => {
         if (!settled) {
           settled = true;
-          cleanup();
+          cleanup(true);
           resolve(null);
         }
       }, timeoutMs);
@@ -72,7 +84,7 @@
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          cleanup();
+          cleanup(false);
           resolve(payload);
         }
       };
@@ -81,7 +93,7 @@
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          cleanup();
+          cleanup(true);
           resolve(null);
         }
       };
@@ -91,16 +103,36 @@
     });
   }
 
+  function extractPrimaryArtist(artistName) {
+    return String(artistName || "")
+      .split(/,|&|\bfeat\.?\b|\bft\.?\b|\bx\b/i)[0]
+      .trim();
+  }
+
+  function stripTitleNoise(title) {
+    return String(title || "")
+      .replace(/\s*[\(\[][^)\]]*[\)\]]\s*/g, " ")
+      .replace(/\s+-\s+(remaster|deluxe|edition|live|acoustic).*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   async function searchArtistImage(artistName) {
     const clean = String(artistName || "").trim();
     if (!clean) return null;
     const key = `a:${clean.toLowerCase()}`;
     if (memCache.has(key)) return memCache.get(key);
 
-    const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(clean)}&limit=1`;
-    const res = await jsonpFetch(url);
-    const first = res && Array.isArray(res.data) ? res.data[0] : null;
-    const img = first ? (first.picture_big || first.picture_medium || first.picture || null) : null;
+    const primary = extractPrimaryArtist(clean);
+    const candidates = primary && primary.toLowerCase() !== clean.toLowerCase() ? [clean, primary] : [clean];
+    let img = null;
+    for (const qArtist of candidates) {
+      const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(qArtist)}&limit=1`;
+      const res = await jsonpFetch(url);
+      const first = res && Array.isArray(res.data) ? res.data[0] : null;
+      img = first ? (first.picture_big || first.picture_medium || first.picture || null) : null;
+      if (img) break;
+    }
     memCache.set(key, img);
     return img;
   }
@@ -112,11 +144,22 @@
     const key = `t:${aClean.toLowerCase()}::${tClean.toLowerCase()}`;
     if (memCache.has(key)) return memCache.get(key);
 
-    const q = aClean ? `${aClean} ${tClean}` : tClean;
-    const url = `https://api.deezer.com/search/track?q=${encodeURIComponent(q)}&limit=1`;
-    const res = await jsonpFetch(url);
-    const first = res && Array.isArray(res.data) ? res.data[0] : null;
-    const img = first && first.album ? (first.album.cover_big || first.album.cover_medium || first.album.cover || null) : null;
+    const tSimple = stripTitleNoise(tClean);
+    const aPrimary = extractPrimaryArtist(aClean);
+    const queries = [];
+    queries.push(aClean ? `${aClean} ${tClean}` : tClean);
+    if ((aPrimary && aPrimary !== aClean) || (tSimple && tSimple !== tClean)) {
+      queries.push(aPrimary ? `${aPrimary} ${tSimple || tClean}` : (tSimple || tClean));
+    }
+
+    let img = null;
+    for (const q of queries) {
+      const url = `https://api.deezer.com/search/track?q=${encodeURIComponent(q)}&limit=1`;
+      const res = await jsonpFetch(url);
+      const first = res && Array.isArray(res.data) ? res.data[0] : null;
+      img = first && first.album ? (first.album.cover_big || first.album.cover_medium || first.album.cover || null) : null;
+      if (img) break;
+    }
     memCache.set(key, img);
     return img;
   }

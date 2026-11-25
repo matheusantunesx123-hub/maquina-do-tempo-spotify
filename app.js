@@ -711,11 +711,11 @@
     syncExportControlsUI();
 
     const token = ++state.renderToken;
-    els.previewStatus.textContent = "Renderizando capas...";
+    els.previewStatus.textContent = state.activeReport._enriching ? "Buscando capas HD..." : "Renderizando capas...";
     try {
       await window.SpotifyExporter.renderInstagramCanvas(els.previewCanvas, state.activeReport, getExportOptions());
       if (token === state.renderToken) {
-        els.previewStatus.textContent = "Pronto em 1080px";
+        els.previewStatus.textContent = state.activeReport._enriching ? "Buscando capas HD..." : "Pronto em 1080px";
       }
     } catch (err) {
       console.error(err);
@@ -821,36 +821,41 @@
   }
 
   function renderActiveReportAll() {
-    if (!state.activeReport) return;
+    if (!state.activeReport) return Promise.resolve();
     renderTimelineBar();
     renderHero(state.activeReport);
     renderRankings(state.activeReport);
     renderCuradoria(state.activeReport);
     renderRhythm(state.activeReport);
-    refreshPreview();
+    return refreshPreview();
   }
 
   function selectReport(reportId) {
     if (!state.bundle || !state.bundle.reports.has(reportId)) return;
     state.activeReportId = reportId;
-    state.activeReport = state.bundle.reports.get(reportId);
+    const reportRef = state.bundle.reports.get(reportId);
+    state.activeReport = reportRef;
     state.selectedDay = null;
     state.tracksExpanded = false;
     state.artistsExpanded = false;
 
+    const needsEnrich = !reportRef.isDemo && !reportRef._coversEnriched && Boolean(window.CoverEnricher);
+    if (needsEnrich) {
+      reportRef._enriching = true;
+    }
+
     renderActiveReportAll();
 
-    if (!state.activeReport.isDemo && !state.activeReport._coversEnriched && window.CoverEnricher) {
+    if (needsEnrich) {
       els.previewStatus.textContent = "Buscando capas HD...";
-      window.CoverEnricher.enrichReportCovers(state.activeReport, () => {
-        if (state.activeReportId === reportId) {
-          renderActiveReportAll();
-        }
-      }).then((changed) => {
-        if (!changed && state.activeReportId === reportId) {
-          els.previewStatus.textContent = "Pronto em 1080px";
-        }
-      });
+      window.CoverEnricher.enrichReportCovers(reportRef)
+        .catch(() => false)
+        .then(async () => {
+          reportRef._enriching = false;
+          if (state.activeReportId === reportId) {
+            await renderActiveReportAll();
+          }
+        });
     }
   }
 
