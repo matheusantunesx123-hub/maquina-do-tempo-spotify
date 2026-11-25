@@ -1,6 +1,10 @@
 (function () {
   "use strict";
 
+  const LAST_OPEN_SESSION_KEY = "stm_friends_last_open_v1";
+  const SYNC_POLL_INTERVAL_SEC = 25;
+  const SYNC_POLL_MAX_CYCLES = 12;
+
   const state = {
     clientId: "",
     lastfmApiKey: "",
@@ -18,7 +22,12 @@
     carouselSlideIdx: 0,
     handle: "@meu_spotify",
     showMetrics: true,
-    renderToken: 0
+    renderToken: 0,
+    syncPollTimer: null,
+    syncPollRemaining: 0,
+    syncPollCycles: 0,
+    syncPollTarget: null,
+    shareFeedbackTimer: null
   };
 
   const els = {};
@@ -107,6 +116,130 @@
     syncProviderFormUI();
   }
 
+  function parseUserInput(raw, fallbackProvider) {
+    const trimmed = String(raw || "").trim();
+    const baseProvider = fallbackProvider === "lastfm" ? "lastfm" : "listenbrainz";
+    const lbMatch = trimmed.match(/listenbrainz\.org\/user\/([^/?#]+)/i);
+    if (lbMatch && lbMatch[1]) {
+      let u = lbMatch[1];
+      try { u = decodeURIComponent(u); } catch (_) {}
+      return {
+        username: u.trim().replace(/^@+/, "").replace(/\/+$/, ""),
+        provider: "listenbrainz",
+        detectedFromUrl: true
+      };
+    }
+    const lfmMatch = trimmed.match(/last(?:\.fm|fm\.com)(?:\/[a-z]{2})?\/user\/([^/?#]+)/i);
+    if (lfmMatch && lfmMatch[1]) {
+      let u = lfmMatch[1];
+      try { u = decodeURIComponent(u); } catch (_) {}
+      return {
+        username: u.trim().replace(/^@+/, "").replace(/\/+$/, ""),
+        provider: "lastfm",
+        detectedFromUrl: true
+      };
+    }
+    return {
+      username: trimmed.replace(/^@+/, "").replace(/\/+$/, ""),
+      provider: baseProvider,
+      detectedFromUrl: false
+    };
+  }
+
+  function saveLastOpenSession(provider, username) {
+    try {
+      localStorage.setItem(LAST_OPEN_SESSION_KEY, JSON.stringify({ provider, username }));
+    } catch (_) {}
+  }
+
+  function loadLastOpenSession() {
+    try {
+      const raw = localStorage.getItem(LAST_OPEN_SESSION_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.username) {
+        return {
+          provider: parsed.provider === "lastfm" ? "lastfm" : "listenbrainz",
+          username: String(parsed.username).trim()
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function clearLastOpenSession() {
+    try {
+      localStorage.removeItem(LAST_OPEN_SESSION_KEY);
+    } catch (_) {}
+  }
+
+  function clearUrlQueryParams() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      ["u", "user", "p", "provider", "m", "month"].forEach((k) => params.delete(k));
+      const cleanSearch = params.toString();
+      const nextUrl =
+        window.location.pathname +
+        (cleanSearch ? "?" + cleanSearch : "") +
+        (window.location.hash || "");
+      window.history.replaceState({}, "", nextUrl);
+    } catch (_) {}
+  }
+
+  function triggerInputShake(el) {
+    if (!el) return;
+    el.classList.remove("input-shake");
+    void el.offsetWidth;
+    el.classList.add("input-shake");
+    setTimeout(() => el.classList.remove("input-shake"), 420);
+  }
+
+  function stopSyncPolling() {
+    if (state.syncPollTimer) {
+      clearInterval(state.syncPollTimer);
+      state.syncPollTimer = null;
+    }
+    state.syncPollRemaining = 0;
+    state.syncPollCycles = 0;
+    state.syncPollTarget = null;
+    if (els.syncWaitBox) els.syncWaitBox.hidden = true;
+  }
+
+  function startSyncPolling(provider, username, monthOpt, cycleCount) {
+    stopSyncPolling();
+    const cycle = Math.max(1, Number(cycleCount) || 1);
+    if (cycle > SYNC_POLL_MAX_CYCLES) {
+      els.syncWaitBox.hidden = false;
+      els.syncWaitTimer.textContent =
+        "A sincronização inicial ainda não apareceu. Clique em \"Verificar agora\" quando o Spotify concluir no ListenBrainz.";
+      return;
+    }
+
+    state.syncPollTarget = { provider, username, monthOpt };
+    state.syncPollCycles = cycle;
+    state.syncPollRemaining = SYNC_POLL_INTERVAL_SEC;
+    els.syncWaitBox.hidden = false;
+    els.syncWaitTimer.textContent = `Nova verificação automática em ${state.syncPollRemaining}s (tentativa ${cycle}/${SYNC_POLL_MAX_CYCLES})…`;
+
+    state.syncPollTimer = setInterval(async () => {
+      state.syncPollRemaining -= 1;
+      if (state.syncPollRemaining > 0) {
+        els.syncWaitTimer.textContent = `Nova verificação automática em ${state.syncPollRemaining}s (tentativa ${cycle}/${SYNC_POLL_MAX_CYCLES})…`;
+        return;
+      }
+
+      clearInterval(state.syncPollTimer);
+      state.syncPollTimer = null;
+      els.syncWaitTimer.textContent = "Verificando novamente no ListenBrainz…";
+
+      const target = state.syncPollTarget;
+      await loadOpenProvider(target.provider, target.username, target.monthOpt, {
+        fromPoll: true,
+        nextCycle: cycle + 1
+      });
+    }, 1000);
+  }
+
   function syncProviderFormUI() {
     const isLastfm = state.openProvider === "lastfm";
     els.providerTabs.querySelectorAll("[data-provider]").forEach((btn) => {
@@ -118,11 +251,11 @@
     els.btnToggleLastfmKey.hidden = !isLastfm;
     if (!isLastfm) {
       els.lastfmKeyDrawer.hidden = true;
-      els.inputOpenUsername.placeholder = "ex: iliekcomputers";
+      els.inputOpenUsername.placeholder = "Ex.: seunome ou listenbrainz.org/user/seunome";
       els.providerHint.innerHTML =
-        `Ainda não vinculou? <a href="https://listenbrainz.org/settings/music-services/details/" target="_blank" rel="noopener noreferrer">Conectar Spotify ao ListenBrainz grátis em 1 clique</a>.`;
+        `Dica: depois de conectar no <a href="https://listenbrainz.org/settings/music-services/details/" target="_blank" rel="noopener noreferrer">ListenBrainz</a>, seu histórico mensal fica salvo para voltar sempre que quiser.`;
     } else {
-      els.inputOpenUsername.placeholder = "ex: seu_usuario_lastfm";
+      els.inputOpenUsername.placeholder = "Ex.: seunome ou last.fm/user/seunome";
       if (!state.lastfmApiKey) {
         els.lastfmKeyDrawer.hidden = false;
       }
@@ -135,6 +268,7 @@
     els.welcomeScreen.hidden = false;
     els.dashboardRoot.hidden = true;
     els.headerProfile.hidden = true;
+    els.btnCopyShareLink.hidden = true;
     els.btnRefreshData.hidden = true;
     els.btnSwitchSource.hidden = true;
     els.btnLogout.hidden = true;
@@ -142,6 +276,7 @@
   }
 
   function showDashboard(bundle) {
+    stopSyncPolling();
     state.bundle = bundle;
     els.welcomeScreen.hidden = true;
     els.dashboardRoot.hidden = false;
@@ -150,6 +285,7 @@
 
     const isApi = bundle.mode === "spotify_api";
     const isOpen = bundle.mode === "listenbrainz" || bundle.mode === "lastfm";
+    els.btnCopyShareLink.hidden = !isOpen;
     els.btnRefreshData.hidden = !(isApi || isOpen);
     els.btnLogout.hidden = !isApi;
     els.btnExportBackup.hidden = !isApi;
@@ -859,14 +995,32 @@
     }
   }
 
-  async function loadOpenProvider(provider, username, monthOpt) {
-    const cleanUser = String(username || "").trim().replace(/^@+/, "");
-    if (!cleanUser) {
-      setStatusBanner("Informe seu nome de usuário", "Digite o @usuario do serviço escolhido para gerar sua Máquina do Tempo.");
-      return;
+  async function loadOpenProvider(provider, rawInput, monthOpt, opts) {
+    const options = opts || {};
+    const parsed = parseUserInput(rawInput, provider || state.openProvider);
+    const detectedProvider = parsed.provider;
+    const cleanUser = parsed.username;
+
+    if (parsed.detectedFromUrl || (provider && provider !== state.openProvider)) {
+      state.openProvider = detectedProvider;
+      syncProviderFormUI();
     }
 
-    if (provider === "lastfm") {
+    if (!cleanUser) {
+      if (!options.isAutoLogin) {
+        triggerInputShake(els.inputOpenUsername);
+        els.inputOpenUsername.focus();
+        setStatusBanner(
+          "Digite seu @usuario",
+          "Informe seu nome de usuário do ListenBrainz (ou cole o link do seu perfil) para entrar."
+        );
+      }
+      return false;
+    }
+
+    els.inputOpenUsername.value = cleanUser;
+
+    if (detectedProvider === "lastfm") {
       const apiKey = window.SpotifyAppConfig.resolveLastfmApiKey();
       if (!apiKey) {
         els.lastfmKeyDrawer.hidden = false;
@@ -875,25 +1029,66 @@
           "Falta configurar a API Key do Last.fm",
           "Crie uma chave gratuita em last.fm/api/account/create e cole no campo abaixo — ela libera acesso ilimitado para qualquer usuário!"
         );
-        return;
+        return false;
       }
-      setStatusBanner(`Consultando @${cleanUser} no Last.fm...`, "Buscando scrobbles e organizando sua Máquina do Tempo mensal.", true);
+      if (!options.fromPoll) {
+        setStatusBanner(`Consultando @${cleanUser} no Last.fm...`, "Buscando scrobbles e organizando sua Máquina do Tempo mensal.", true);
+      }
       try {
         const bundle = await window.OpenMusicProviders.fetchLastfmUser(cleanUser, apiKey, monthOpt || null);
+        stopSyncPolling();
+        saveLastOpenSession("lastfm", cleanUser);
         setStatusBanner("", "");
         mergeIntoCurrentBundleOrShow(bundle);
+        return true;
       } catch (err) {
-        setStatusBanner("Não foi possível carregar Last.fm", err.message);
+        if (options.isAutoLogin) {
+          clearLastOpenSession();
+          showWelcomeScreen();
+          setStatusBanner("Entre novamente com seu @usuario", err.message);
+        } else {
+          setStatusBanner("Não foi possível carregar Last.fm", err.message);
+        }
+        return false;
       }
-    } else {
+    }
+
+    if (!options.fromPoll) {
       setStatusBanner(`Consultando @${cleanUser} no ListenBrainz...`, "Carregando reproduções e calculando seu resumo mensal.", true);
-      try {
-        const bundle = await window.OpenMusicProviders.fetchListenBrainzUser(cleanUser, monthOpt || null);
+    }
+    try {
+      const bundle = await window.OpenMusicProviders.fetchListenBrainzUser(cleanUser, monthOpt || null);
+      stopSyncPolling();
+      saveLastOpenSession("listenbrainz", cleanUser);
+      setStatusBanner("", "");
+      mergeIntoCurrentBundleOrShow(bundle);
+      return true;
+    } catch (err) {
+      if (err && err.code === "NO_LISTENS_YET") {
+        if (options.isAutoLogin) showWelcomeScreen();
         setStatusBanner("", "");
-        mergeIntoCurrentBundleOrShow(bundle);
-      } catch (err) {
+        startSyncPolling("listenbrainz", cleanUser, monthOpt || null, options.nextCycle || 1);
+        return false;
+      }
+      if (err && err.code === "USER_NOT_FOUND") {
+        if (options.isAutoLogin) {
+          clearLastOpenSession();
+          showWelcomeScreen();
+        }
+        triggerInputShake(els.inputOpenUsername);
+        setStatusBanner(
+          `Não encontramos @${cleanUser} no ListenBrainz`,
+          "Confira se o nome está correto ou clique em \"1. Conectar Spotify grátis →\" acima para criar e vincular sua conta."
+        );
+        return false;
+      }
+      if (options.isAutoLogin) {
+        showWelcomeScreen();
+        setStatusBanner("Toque para tentar novamente", err.message);
+      } else {
         setStatusBanner("Não foi possível carregar ListenBrainz", err.message);
       }
+      return false;
     }
   }
 
@@ -985,7 +1180,38 @@
 
     els.openProviderForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      await loadOpenProvider(state.openProvider, els.inputOpenUsername.value, els.inputOpenMonth.value);
+      stopSyncPolling();
+      const monthVal = els.monthOptWrap && !els.monthOptWrap.hidden ? els.inputOpenMonth.value : null;
+      await loadOpenProvider(state.openProvider, els.inputOpenUsername.value, monthVal);
+    });
+
+    els.btnToggleMonthOpt.addEventListener("click", () => {
+      const willOpen = els.monthOptWrap.hidden;
+      els.monthOptWrap.hidden = !willOpen;
+      els.btnToggleMonthOpt.setAttribute("aria-expanded", String(willOpen));
+      if (!willOpen) {
+        els.inputOpenMonth.value = "";
+      } else {
+        els.inputOpenMonth.focus();
+      }
+    });
+
+    els.btnSyncRetry.addEventListener("click", async () => {
+      const target = state.syncPollTarget || {
+        provider: state.openProvider,
+        username: els.inputOpenUsername.value,
+        monthOpt: els.monthOptWrap && !els.monthOptWrap.hidden ? els.inputOpenMonth.value : null
+      };
+      await loadOpenProvider(target.provider, target.username, target.monthOpt, { fromPoll: true });
+    });
+
+    els.btnSyncCancel.addEventListener("click", () => {
+      stopSyncPolling();
+      setStatusBanner(
+        "Espera cancelada",
+        "Assim que suas músicas aparecerem no ListenBrainz, clique em \"Ver minha Máquina do Tempo\".",
+        true
+      );
     });
 
     els.btnTravelMonth.addEventListener("click", async () => {
@@ -1058,6 +1284,7 @@
     });
 
     els.btnTryDemo.addEventListener("click", () => {
+      stopSyncPolling();
       setStatusBanner("", "");
       showDashboard(window.SpotifyHistoryImporter.createDemoDataset());
     });
@@ -1092,9 +1319,32 @@
       }
     });
 
+    els.btnCopyShareLink.addEventListener("click", async () => {
+      if (!state.bundle || !state.bundle.providerUsername) return;
+      const baseUrl = window.location.origin + window.location.pathname;
+      const qp = new URLSearchParams({ u: state.bundle.providerUsername });
+      if (state.bundle.mode === "lastfm") qp.set("p", "lastfm");
+      const shareUrl = `${baseUrl}?${qp.toString()}`;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        els.btnCopyShareLink.textContent = "Link copiado!";
+        clearTimeout(state.shareFeedbackTimer);
+        state.shareFeedbackTimer = setTimeout(() => {
+          els.btnCopyShareLink.textContent = "Copiar link";
+        }, 2500);
+      } catch (_) {
+        setStatusBanner("Copie o link direto do seu painel:", shareUrl, true);
+      }
+    });
+
     els.btnSwitchSource.addEventListener("click", () => {
+      stopSyncPolling();
+      clearLastOpenSession();
+      clearUrlQueryParams();
+      state.bundle = null;
       setStatusBanner("", "");
       showWelcomeScreen();
+      els.inputOpenUsername.focus();
     });
 
     els.btnLogout.addEventListener("click", () => {
@@ -1183,6 +1433,7 @@
     els.headerProfile = qs("header-profile");
     els.headerAvatar = qs("header-avatar");
     els.headerName = qs("header-name");
+    els.btnCopyShareLink = qs("btn-copy-share-link");
     els.btnRefreshData = qs("btn-refresh-data");
     els.btnSwitchSource = qs("btn-switch-source");
     els.btnLogout = qs("btn-logout");
@@ -1190,12 +1441,18 @@
     els.providerTabs = qs("provider-tabs");
     els.openProviderForm = qs("open-provider-form");
     els.inputOpenUsername = qs("input-open-username");
+    els.btnToggleMonthOpt = qs("btn-toggle-month-opt");
+    els.monthOptWrap = qs("month-opt-wrap");
     els.inputOpenMonth = qs("input-open-month");
     els.btnOpenConnect = qs("btn-open-connect");
     els.btnToggleLastfmKey = qs("btn-toggle-lastfm-key");
     els.lastfmKeyDrawer = qs("lastfm-key-drawer");
     els.inputLastfmKey = qs("input-lastfm-key");
     els.btnSaveLastfmKey = qs("btn-save-lastfm-key");
+    els.syncWaitBox = qs("sync-wait-box");
+    els.syncWaitTimer = qs("sync-wait-timer");
+    els.btnSyncRetry = qs("btn-sync-retry");
+    els.btnSyncCancel = qs("btn-sync-cancel");
     els.providerHint = qs("provider-hint");
     els.clientIdStatus = qs("client-id-status");
     els.btnSpotifyLogin = qs("btn-spotify-login");
@@ -1286,6 +1543,25 @@
     refreshConfigUI();
     bindEvents();
 
+    const params = new URLSearchParams(window.location.search);
+    const urlUser = (params.get("u") || params.get("user") || "").trim();
+    const urlProvider = (params.get("p") || params.get("provider") || "").trim().toLowerCase();
+    const urlMonth = (params.get("m") || params.get("month") || "").trim() || null;
+
+    if (urlUser) {
+      const parsed = parseUserInput(urlUser, urlProvider === "lastfm" ? "lastfm" : "listenbrainz");
+      state.openProvider = parsed.provider;
+      syncProviderFormUI();
+      els.inputOpenUsername.value = parsed.username;
+      if (urlMonth) {
+        els.monthOptWrap.hidden = false;
+        els.btnToggleMonthOpt.setAttribute("aria-expanded", "true");
+        els.inputOpenMonth.value = urlMonth;
+      }
+      await loadOpenProvider(parsed.provider, parsed.username, urlMonth, { isUrlLink: true });
+      return;
+    }
+
     const cb = await window.SpotifyAuth.handleCallbackIfPresent();
     if (cb.status === "error") {
       showWelcomeScreen();
@@ -1299,9 +1575,19 @@
 
     if (token) {
       await loadSpotifySession(token);
-    } else {
-      showWelcomeScreen();
+      return;
     }
+
+    const saved = loadLastOpenSession();
+    if (saved && saved.username) {
+      state.openProvider = saved.provider;
+      syncProviderFormUI();
+      els.inputOpenUsername.value = saved.username;
+      await loadOpenProvider(saved.provider, saved.username, null, { isAutoLogin: true });
+      return;
+    }
+
+    showWelcomeScreen();
   }
 
   document.addEventListener("DOMContentLoaded", init);

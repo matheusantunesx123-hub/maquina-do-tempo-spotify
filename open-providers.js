@@ -17,7 +17,17 @@
   }
 
   function cleanUsername(raw) {
-    return String(raw || "").trim().replace(/^@+/, "");
+    let val = String(raw || "").trim();
+    const lbMatch = val.match(/listenbrainz\.org\/user\/([^/?#]+)/i);
+    if (lbMatch && lbMatch[1]) {
+      try { val = decodeURIComponent(lbMatch[1]); } catch (_) { val = lbMatch[1]; }
+    } else {
+      const lfmMatch = val.match(/last(?:\.fm|fm\.com)(?:\/[a-z]{2})?\/user\/([^/?#]+)/i);
+      if (lfmMatch && lfmMatch[1]) {
+        try { val = decodeURIComponent(lfmMatch[1]); } catch (_) { val = lfmMatch[1]; }
+      }
+    }
+    return val.trim().replace(/^@+/, "").replace(/\/+$/, "");
   }
 
   // ==========================================================
@@ -68,7 +78,9 @@
       for (let page = 0; page < 3; page++) {
         const res = await fetch(`${baseUrl}?count=1000&min_ts=${range.minTs}&max_ts=${cursorMax}`);
         if (res.status === 404) {
-          throw new Error(`Usuário "${username}" não encontrado no ListenBrainz.`);
+          const err = new Error(`Usuário "${username}" não encontrado no ListenBrainz.`);
+          err.code = "USER_NOT_FOUND";
+          throw err;
         }
         if (!res.ok) {
           throw new Error(`ListenBrainz retornou HTTP ${res.status}.`);
@@ -87,7 +99,9 @@
         const q = cursorMax ? `?count=1000&max_ts=${cursorMax}` : "?count=1000";
         const res = await fetch(`${baseUrl}${q}`);
         if (res.status === 404) {
-          throw new Error(`Usuário "${username}" não encontrado no ListenBrainz.`);
+          const err = new Error(`Usuário "${username}" não encontrado no ListenBrainz.`);
+          err.code = "USER_NOT_FOUND";
+          throw err;
         }
         if (!res.ok) {
           throw new Error(`ListenBrainz retornou HTTP ${res.status}.`);
@@ -104,11 +118,14 @@
 
     const normalized = listens.map(mapListenToNormalized).filter(Boolean);
     if (!normalized.length) {
-      throw new Error(
-        targetMonthOpt
-          ? `Nenhuma música registrada em ${targetMonthOpt} para "${username}".`
-          : `Usuário "${username}" ainda não tem reproduções no ListenBrainz. Vincule seu Spotify em listenbrainz.org/settings/music-services/details/.`
+      if (targetMonthOpt) {
+        throw new Error(`Nenhuma música registrada em ${targetMonthOpt} para "${username}".`);
+      }
+      const err = new Error(
+        `Usuário "${username}" ainda não tem reproduções no ListenBrainz. Vincule seu Spotify em listenbrainz.org/settings/music-services/details/.`
       );
+      err.code = "NO_LISTENS_YET";
+      throw err;
     }
 
     const estimatedOnly = normalized.every((n) => n.hasEstimatedDuration);

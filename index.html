@@ -39,8 +39,9 @@
           <div class="profile-avatar" id="header-avatar"></div>
           <span class="profile-name" id="header-name">—</span>
         </div>
+        <button type="button" class="btn btn-ghost" id="btn-copy-share-link" hidden>Copiar link</button>
         <button type="button" class="btn btn-ghost" id="btn-refresh-data" hidden>Atualizar</button>
-        <button type="button" class="btn btn-ghost" id="btn-switch-source" hidden>Trocar fonte</button>
+        <button type="button" class="btn btn-ghost" id="btn-switch-source" hidden>Trocar conta</button>
         <button type="button" class="btn btn-ghost" id="btn-logout" hidden>Sair</button>
         <a class="btn btn-primary" id="btn-jump-studio" href="#estudio-instagram" hidden>Exportar para Instagram</a>
       </nav>
@@ -51,150 +52,191 @@
     <!-- Banner global de feedback / erro -->
     <div class="wrap" id="status-banner" aria-live="polite"></div>
 
-    <!-- TELA DE BOAS-VINDAS / MULTI-PROVEDOR -->
+    <!-- TELA DE BOAS-VINDAS SIMPLIFICADA -->
     <section class="welcome-section" id="welcome-screen" aria-labelledby="welcome-title">
       <div class="wrap">
-        <div class="welcome-hero">
-          <span class="mono-tag">USUÁRIOS ILIMITADOS · 100% NO NAVEGADOR</span>
-          <h1 class="welcome-title" id="welcome-title">Sua Máquina do Tempo do Spotify — Para Quantas Pessoas Quiser</h1>
-          <p class="welcome-lead">
-            Digite apenas seu <code>@usuario</code> do ListenBrainz ou Last.fm, ou importe seu histórico oficial do Spotify para gerar sua retrospectiva mensal e baixar artes em 1080px para o Instagram.
-          </p>
-        </div>
-
-        <div class="welcome-grid">
-          <!-- CARD 1: ListenBrainz & Last.fm (Ilimitado) -->
-          <article class="panel-card open-card">
-            <div class="card-top-meta">
-              <span class="section-kicker">OPÇÃO 1 · SEM LIMITE DE PESSOAS</span>
-              <span class="mono-badge">Só digitar @usuario</span>
-            </div>
-            <h2>ListenBrainz ou Last.fm</h2>
-            <p class="card-desc">
-              Vincule seu Spotify grátis em 10 segundos no ListenBrainz ou Last.fm e digite seu nome de usuário abaixo para viajar para qualquer mês.
+        <div class="welcome-shell">
+          <div class="welcome-hero">
+            <span class="mono-tag">GRÁTIS · PARA QUANTAS PESSOAS QUISER</span>
+            <h1 class="welcome-title" id="welcome-title">Sua Máquina do Tempo do Spotify</h1>
+            <p class="welcome-lead">
+              Veja o que você mais ouviu no mês e baixe artes em 1080px prontas para o Instagram.
             </p>
+          </div>
 
-            <div class="segmented provider-tabs" id="provider-tabs" role="tablist" aria-label="Escolha o serviço conectado ao seu Spotify">
-              <button type="button" class="seg-btn is-active" data-provider="listenbrainz" role="tab" aria-selected="true">
-                ListenBrainz (Zero Chave)
-              </button>
-              <button type="button" class="seg-btn" data-provider="lastfm" role="tab" aria-selected="false">
-                Last.fm (Mais Popular)
-              </button>
+          <article class="panel-card entry-card">
+            <div class="quick-onboard-box">
+              <div class="quick-onboard-copy">
+                <span class="section-kicker">PASSO 1 · PRIMEIRA VEZ AQUI?</span>
+                <h2>Conecte seu Spotify em 15 segundos</h2>
+                <p class="card-desc">
+                  Crie sua conta grátis no ListenBrainz, clique em <strong>Connect</strong> no Spotify e volte com seu <code>@usuario</code>.
+                </p>
+              </div>
+              <a
+                class="btn btn-connect-outline"
+                id="btn-connect-listenbrainz"
+                href="https://listenbrainz.org/settings/music-services/details/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                1. Conectar Spotify grátis →
+              </a>
             </div>
 
-            <form id="open-provider-form" class="provider-form">
-              <div class="form-row-2">
-                <div class="config-row">
-                  <label class="control-label" for="input-open-username">Seu nome de usuário</label>
-                  <input type="text" id="input-open-username" class="text-input" placeholder="ex: seunome" autocomplete="username" required />
+            <form id="open-provider-form" class="provider-form" novalidate>
+              <div class="config-row">
+                <label class="control-label" for="input-open-username">
+                  2. Digite seu @usuario (ou cole o link do perfil)
+                </label>
+                <input
+                  type="text"
+                  id="input-open-username"
+                  class="text-input entry-input"
+                  placeholder="Ex.: seunome ou listenbrainz.org/user/seunome"
+                  autocomplete="username"
+                />
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-hero-submit" id="btn-open-connect">
+                Ver minha Máquina do Tempo
+              </button>
+
+              <div class="entry-aux-row">
+                <div class="segmented provider-tabs compact-tabs" id="provider-tabs" role="tablist" aria-label="Escolha o serviço conectado ao seu Spotify">
+                  <button type="button" class="seg-btn is-active" data-provider="listenbrainz" role="tab" aria-selected="true">
+                    ListenBrainz
+                  </button>
+                  <button type="button" class="seg-btn" data-provider="lastfm" role="tab" aria-selected="false">
+                    Last.fm
+                  </button>
                 </div>
 
-                <div class="config-row">
-                  <label class="control-label" for="input-open-month">Mês (opcional)</label>
-                  <input type="month" id="input-open-month" class="text-input" />
+                <div class="aux-links">
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-month-opt" aria-expanded="false">
+                    Escolher mês
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-try-demo">
+                    Ver exemplo
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-lastfm-key" hidden>
+                    API Key Last.fm
+                  </button>
                 </div>
               </div>
 
-              <div class="auth-actions">
-                <button type="submit" class="btn btn-primary btn-large" id="btn-open-connect">
-                  Gerar Máquina do Tempo
-                </button>
-                <button type="button" class="btn btn-secondary" id="btn-toggle-lastfm-key" hidden>
-                  Configurar API Key
-                </button>
+              <div class="month-opt-wrap" id="month-opt-wrap" hidden>
+                <label class="control-label" for="input-open-month">Mês específico (opcional)</label>
+                <input type="month" id="input-open-month" class="text-input" />
               </div>
             </form>
 
             <div class="config-drawer" id="lastfm-key-drawer" hidden>
               <div class="config-row">
-                <label class="control-label" for="input-lastfm-key">Last.fm API Key (1 chave grátis libera usuários ilimitados)</label>
+                <label class="control-label" for="input-lastfm-key">API Key do Last.fm (1 chave grátis libera amigos ilimitados)</label>
                 <div class="inline-field">
                   <input type="text" id="input-lastfm-key" class="text-input" placeholder="Cole sua API Key do Last.fm" autocomplete="off" />
                   <button type="button" class="btn btn-primary" id="btn-save-lastfm-key">Salvar Key</button>
                 </div>
               </div>
               <p class="config-help">
-                Crie em segundos em <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer">last.fm/api/account/create</a> (basta preencher o nome do app).
+                Crie gratuitamente em <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer">last.fm/api/account/create</a>.
               </p>
             </div>
 
+            <div class="sync-wait-box" id="sync-wait-box" hidden aria-live="polite">
+              <div class="sync-wait-head">
+                <span class="sync-pulse" aria-hidden="true"></span>
+                <strong>Estamos preparando sua Máquina do Tempo...</strong>
+              </div>
+              <p class="sync-wait-text">
+                O ListenBrainz está buscando suas músicas do Spotify agora. Na primeira conexão isso costuma levar de 1 a 3 minutos.
+              </p>
+              <p class="sync-wait-timer" id="sync-wait-timer">Nova verificação automática em 25s…</p>
+              <div class="sync-wait-actions">
+                <button type="button" class="btn btn-secondary btn-small" id="btn-sync-retry">Verificar agora</button>
+                <button type="button" class="btn btn-ghost btn-small" id="btn-sync-cancel">Cancelar espera</button>
+              </div>
+            </div>
+
             <p class="provider-hint" id="provider-hint">
-              Ainda não vinculou? <a href="https://listenbrainz.org/settings/music-services/details/" target="_blank" rel="noopener noreferrer">Conectar Spotify ao ListenBrainz em 1 clique</a>.
+              Dica: depois de conectar no ListenBrainz, seu histórico mensal fica salvo para voltar sempre que quiser.
             </p>
           </article>
 
-          <!-- CARD 2: Importador Offline + Capas HD -->
-          <article class="panel-card import-card">
-            <div class="card-top-meta">
-              <span class="section-kicker">OPÇÃO 2 · SEM CONTA EXTRA</span>
-              <span class="mono-badge amber">Capas Reais HD</span>
-            </div>
-            <h2>Importar Histórico (.json ou .zip)</h2>
-            <p class="card-desc">
-              Baixou seu histórico oficial na privacidade do Spotify? Arraste o <code>.zip</code> ou os <code>Streaming_History_Audio_*.json</code> — reconstruímos todos os meses e buscamos as capas reais em HD automaticamente.
-            </p>
-
-            <label class="dropzone" id="dropzone" for="input-history-files">
-              <input type="file" id="input-history-files" accept=".json,.zip,application/json,application/zip" multiple class="sr-only" />
-              <strong>Escolher ou arrastar arquivos (.json / .zip)</strong>
-              <span>Suporta Extended Streaming History e Account Data (1 ano)</span>
-            </label>
-
-            <div class="import-footer">
-              <button type="button" class="btn btn-secondary" id="btn-try-demo">
-                Testar com Demonstração
-              </button>
-              <button type="button" class="btn btn-ghost" id="btn-restore-backup">
-                Restaurar Backup (.json)
-              </button>
-              <input type="file" id="input-backup-file" accept=".json,application/json" class="sr-only" />
-            </div>
-          </article>
-
-          <!-- CARD 3: Spotify OAuth PKCE (Secundário, até 5 amigos na Allowlist) -->
-          <article class="panel-card pkce-secondary-card">
-            <div class="pkce-row">
-              <div class="pkce-info">
+          <details class="advanced-drawer" id="advanced-options-drawer">
+            <summary>Outras formas de entrar (importar histórico do Spotify ou login direto)</summary>
+            <div class="advanced-grid">
+              <!-- Importador Offline + Capas HD -->
+              <article class="panel-card import-card">
                 <div class="card-top-meta">
-                  <span class="section-kicker">OPÇÃO 3 · LOGIN DIRETO SPOTIFY (OAUTH PKCE)</span>
-                  <span class="mono-badge" id="client-id-status">Aguardando Client ID</span>
+                  <span class="section-kicker">ARQUIVO DO SPOTIFY</span>
+                  <span class="mono-badge amber">Capas Reais HD</span>
                 </div>
-                <h3>Login Direto Spotify (até 5 contas cadastradas)</h3>
-                <p class="config-help">
-                  Por regra oficial do Spotify (<em>Development Mode</em>), apps individuais aceitam no máximo 5 e-mails na <em>User Management Allowlist</em>. Ideal para você e até 4 amigos mais próximos.
+                <h3>Importar histórico (.json ou .zip)</h3>
+                <p class="card-desc">
+                  Já baixou seus dados na privacidade do Spotify? Arraste o arquivo <code>.zip</code> ou os <code>Streaming_History_Audio_*.json</code> abaixo.
                 </p>
-              </div>
-              <div class="pkce-actions">
-                <button type="button" class="btn btn-secondary" id="btn-spotify-login">
-                  Entrar com Spotify
-                </button>
-                <button type="button" class="btn btn-ghost" id="btn-toggle-config" aria-expanded="false">
-                  Configurar Client ID
-                </button>
-              </div>
-            </div>
 
-            <div class="config-drawer" id="config-drawer" hidden>
-              <div class="form-row-2">
-                <div class="config-row">
-                  <label class="control-label" for="input-client-id">Spotify Client ID (público)</label>
-                  <div class="inline-field">
-                    <input type="text" id="input-client-id" class="text-input" placeholder="Cole os 32 caracteres do Client ID" autocomplete="off" />
-                    <button type="button" class="btn btn-primary" id="btn-save-client-id">Salvar</button>
+                <label class="dropzone" id="dropzone" for="input-history-files">
+                  <input type="file" id="input-history-files" accept=".json,.zip,application/json,application/zip" multiple class="sr-only" />
+                  <strong>Escolher ou arrastar arquivos (.json / .zip)</strong>
+                  <span>Processamento 100% local neste aparelho</span>
+                </label>
+
+                <div class="import-footer">
+                  <button type="button" class="btn btn-ghost btn-small" id="btn-restore-backup">
+                    Restaurar Backup (.json)
+                  </button>
+                  <input type="file" id="input-backup-file" accept=".json,application/json" class="sr-only" />
+                </div>
+              </article>
+
+              <!-- Spotify OAuth PKCE (até 5 amigos na Allowlist) -->
+              <article class="panel-card pkce-secondary-card">
+                <div class="pkce-row">
+                  <div class="pkce-info">
+                    <div class="card-top-meta">
+                      <span class="section-kicker">LOGIN DIRETO SPOTIFY</span>
+                      <span class="mono-badge" id="client-id-status">Aguardando Client ID</span>
+                    </div>
+                    <h3>Entrar direto pelo Spotify (até 5 contas)</h3>
+                    <p class="config-help">
+                      Por regra oficial do Spotify, apps pessoais aceitam no máximo 5 e-mails na lista de permissões.
+                    </p>
+                  </div>
+                  <div class="pkce-actions">
+                    <button type="button" class="btn btn-secondary btn-small" id="btn-spotify-login">
+                      Entrar com Spotify
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-config" aria-expanded="false">
+                      Configurar Client ID
+                    </button>
                   </div>
                 </div>
 
-                <div class="config-row">
-                  <span class="control-label">Redirect URI para o Spotify Dashboard</span>
-                  <div class="inline-field">
-                    <input type="text" id="input-redirect-uri" class="text-input" readonly />
-                    <button type="button" class="btn btn-secondary" id="btn-copy-redirect">Copiar URI</button>
+                <div class="config-drawer" id="config-drawer" hidden>
+                  <div class="form-row-2">
+                    <div class="config-row">
+                      <label class="control-label" for="input-client-id">Spotify Client ID (público)</label>
+                      <div class="inline-field">
+                        <input type="text" id="input-client-id" class="text-input" placeholder="Cole os 32 caracteres do Client ID" autocomplete="off" />
+                        <button type="button" class="btn btn-primary btn-small" id="btn-save-client-id">Salvar</button>
+                      </div>
+                    </div>
+
+                    <div class="config-row">
+                      <span class="control-label">Redirect URI para o Spotify Dashboard</span>
+                      <div class="inline-field">
+                        <input type="text" id="input-redirect-uri" class="text-input" readonly />
+                        <button type="button" class="btn btn-secondary btn-small" id="btn-copy-redirect">Copiar URI</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </article>
             </div>
-          </article>
+          </details>
         </div>
       </div>
     </section>
