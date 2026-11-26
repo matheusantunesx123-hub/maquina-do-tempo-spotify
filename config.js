@@ -9,6 +9,8 @@
     defaultClientId: "",
     // Opcional: cole aqui 1 API Key gratuita do Last.fm (vale para usuários ilimitados).
     defaultLastfmApiKey: "",
+    // Worker de autenticação e logs de amigos
+    authWorkerUrl: "https://spotify-amigos-auth.bot-gastos-telegram.workers.dev",
     scopes: [
       "user-read-private",
       "user-top-read",

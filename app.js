@@ -242,6 +242,55 @@
 
   function syncProviderFormUI() {
     const isLastfm = state.openProvider === "lastfm";
+    
+    // Eventos de Chave de Acesso
+    if (els.btnValidateKey) {
+      els.btnValidateKey.addEventListener("click", () => handleKeyValidation());
+    }
+    if (els.inputAccessKey) {
+      els.inputAccessKey.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleKeyValidation();
+        }
+      });
+    }
+    if (els.btnChangeAccessKey) {
+      els.btnChangeAccessKey.addEventListener("click", () => {
+        window.SpotifyAccessControl.clearSession();
+        renderAccessState();
+        if (els.inputAccessKey) {
+          els.inputAccessKey.value = "";
+          els.inputAccessKey.focus();
+        }
+      });
+    }
+
+    // Eventos do Modal Admin
+    if (els.btnOpenAdmin) {
+      els.btnOpenAdmin.addEventListener("click", openAdminModal);
+    }
+    if (els.btnCloseAdmin) {
+      els.btnCloseAdmin.addEventListener("click", closeAdminModal);
+    }
+    if (els.btnAdminLogin) {
+      els.btnAdminLogin.addEventListener("click", handleAdminLogin);
+    }
+    if (els.adminMasterInput) {
+      els.adminMasterInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleAdminLogin();
+        }
+      });
+    }
+    if (els.btnRefreshAdmin) {
+      els.btnRefreshAdmin.addEventListener("click", refreshAdminData);
+    }
+    if (els.adminCreateForm) {
+      els.adminCreateForm.addEventListener("submit", handleAdminCreateKey);
+    }
+
     els.providerTabs.querySelectorAll("[data-provider]").forEach((btn) => {
       const active = btn.dataset.provider === state.openProvider;
       btn.classList.toggle("is-active", active);
@@ -1018,6 +1067,28 @@
       return false;
     }
 
+    // Validação de chave de acesso individual
+    let storedCode = window.SpotifyAccessControl.getStoredCode();
+    if (!storedCode) {
+      if (els.inputAccessKey && els.inputAccessKey.value.trim()) {
+        const ok = await handleKeyValidation();
+        if (!ok) return false;
+      } else {
+        if (els.accessKeyBox) {
+          els.accessKeyBox.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        triggerInputShake(els.inputAccessKey);
+        if (els.inputAccessKey) els.inputAccessKey.focus();
+        setStatusBanner(
+          "Chave de Acesso Necessária",
+          "Por favor, digite sua Chave de Acesso individual enviada pelo Matheus para desbloquear."
+        );
+        return false;
+      }
+    }
+    // Registra consulta em segundo plano no Worker D1
+    window.SpotifyAccessControl.logQuery(cleanUser);
+
     els.inputOpenUsername.value = cleanUser;
 
     if (detectedProvider === "lastfm") {
@@ -1156,7 +1227,309 @@
     }
   }
 
+  
+  // ==========================================
+  // CONTROLE DE ACESSO (CHAVES DE AMIGOS E ADMIN)
+  // ==========================================
+  let adminSessionMasterKey = "";
+
+  function renderAccessState() {
+    const code = window.SpotifyAccessControl.getStoredCode();
+    const friendName = window.SpotifyAccessControl.getStoredFriendName();
+
+    if (code) {
+      if (els.accessBadgeRow) {
+        els.accessBadgeRow.hidden = false;
+        els.accessFriendName.textContent = friendName || "Amigo";
+        els.accessCodeBadge.textContent = code;
+      }
+      if (els.accessKeyBox) els.accessKeyBox.hidden = true;
+    } else {
+      if (els.accessBadgeRow) els.accessBadgeRow.hidden = true;
+      if (els.accessKeyBox) els.accessKeyBox.hidden = false;
+    }
+  }
+
+  async function handleKeyValidation(codeToTest) {
+    const inputVal = (codeToTest || (els.inputAccessKey ? els.inputAccessKey.value : "")).trim().toUpperCase();
+    if (!inputVal) {
+      if (els.accessStatusMsg) {
+        els.accessStatusMsg.className = "access-status-msg error";
+        els.accessStatusMsg.textContent = "Digite sua Chave de Acesso para continuar.";
+        els.accessStatusMsg.hidden = false;
+      }
+      return false;
+    }
+
+    if (els.btnValidateKey) {
+      els.btnValidateKey.disabled = true;
+      els.btnValidateKey.textContent = "Verificando...";
+    }
+
+    const res = await window.SpotifyAccessControl.verifyCode(inputVal);
+
+    if (els.btnValidateKey) {
+      els.btnValidateKey.disabled = false;
+      els.btnValidateKey.textContent = "Liberar Acesso";
+    }
+
+    if (res.valid) {
+      if (els.accessStatusMsg) {
+        els.accessStatusMsg.className = "access-status-msg success";
+        els.accessStatusMsg.textContent = "Acesso liberado! Bem-vindo(a), " + (res.friendName || "Amigo") + "!";
+        els.accessStatusMsg.hidden = false;
+      }
+      renderAccessState();
+      return true;
+    } else {
+      if (els.accessStatusMsg) {
+        els.accessStatusMsg.className = "access-status-msg error";
+        els.accessStatusMsg.textContent = res.message || "Chave inválida ou pausada.";
+        els.accessStatusMsg.hidden = false;
+      }
+      return false;
+    }
+  }
+
+  // --- Funções do Modal Admin (Painel do Matheus) ---
+  function openAdminModal() {
+    if (!els.adminModal) return;
+    els.adminModal.hidden = false;
+    if (adminSessionMasterKey) {
+      showAdminDashboard();
+    } else {
+      els.adminLoginView.hidden = false;
+      els.adminDashboardView.hidden = true;
+      if (els.adminMasterInput) els.adminMasterInput.focus();
+    }
+  }
+
+  function closeAdminModal() {
+    if (els.adminModal) els.adminModal.hidden = true;
+  }
+
+  async function handleAdminLogin() {
+    const key = (els.adminMasterInput ? els.adminMasterInput.value : "").trim();
+    if (!key) return;
+
+    els.btnAdminLogin.disabled = true;
+    els.btnAdminLogin.textContent = "Entrando...";
+    els.adminLoginError.hidden = true;
+
+    try {
+      const data = await window.SpotifyAccessControl.adminList(key);
+      if (data.ok) {
+        adminSessionMasterKey = key;
+        showAdminDashboard(data);
+      } else {
+        els.adminLoginError.textContent = data.message || "Senha mestra incorreta.";
+        els.adminLoginError.hidden = false;
+      }
+    } catch (e) {
+      els.adminLoginError.textContent = "Erro ao conectar com Cloudflare D1.";
+      els.adminLoginError.hidden = false;
+    } finally {
+      els.btnAdminLogin.disabled = false;
+      els.btnAdminLogin.textContent = "Entrar no Painel";
+    }
+  }
+
+  async function refreshAdminData() {
+    if (!adminSessionMasterKey) return;
+    if (els.btnRefreshAdmin) els.btnRefreshAdmin.textContent = "Atualizando...";
+    try {
+      const data = await window.SpotifyAccessControl.adminList(adminSessionMasterKey);
+      if (data.ok) renderAdminData(data);
+    } catch (_) {}
+    finally {
+      if (els.btnRefreshAdmin) els.btnRefreshAdmin.textContent = "Atualizar ⟳";
+    }
+  }
+
+  function showAdminDashboard(initialData) {
+    els.adminLoginView.hidden = true;
+    els.adminDashboardView.hidden = false;
+    if (initialData) {
+      renderAdminData(initialData);
+    } else {
+      refreshAdminData();
+    }
+  }
+
+  function renderAdminData(data) {
+    const stats = data.stats || {};
+    if (els.adminStatKeys) els.adminStatKeys.textContent = stats.totalKeys || 0;
+    if (els.adminStatActive) els.adminStatActive.textContent = stats.activeKeys || 0;
+    if (els.adminStatBlocked) els.adminStatBlocked.textContent = stats.blockedKeys || 0;
+    if (els.adminStatUses) els.adminStatUses.textContent = stats.totalUses || 0;
+
+    // Render keys table
+    if (els.adminKeysTbody) {
+      const keys = data.keys || [];
+      if (!keys.length) {
+        els.adminKeysTbody.innerHTML = '<tr><td colspan="6" class="text-muted">Nenhuma chave cadastrada ainda. Crie uma acima!</td></tr>';
+      } else {
+        const siteUrl = window.location.origin + window.location.pathname.replace(/index\.html$/, "");
+        els.adminKeysTbody.innerHTML = keys.map(k => {
+          const isBlocked = k.status === "blocked";
+          const statusBadge = isBlocked
+            ? '<span class="badge-status badge-blocked">Bloqueado</span>'
+            : '<span class="badge-status badge-active">Ativo</span>';
+          const toggleAction = isBlocked ? "active" : "blocked";
+          const toggleLabel = isBlocked ? "Desbloquear" : "Bloquear";
+          const inviteUrl = siteUrl + "?key=" + encodeURIComponent(k.code);
+          return `
+            <tr>
+              <td><strong>${escapeHtml(k.friend_name)}</strong></td>
+              <td><code>${escapeHtml(k.code)}</code></td>
+              <td>${statusBadge}</td>
+              <td>${k.use_count || 0}${k.max_uses ? " / " + k.max_uses : ""}</td>
+              <td><small>${k.last_used_at ? k.last_used_at.slice(0, 16) : "Nunca"}</small></td>
+              <td class="admin-actions-cell">
+                <button type="button" class="btn-table-action btn-copy-invite" data-url="${inviteUrl}" title="Copiar link de convite direto">Copiar Convite</button>
+                <button type="button" class="btn-table-action btn-toggle-key" data-id="${k.id}" data-next="${toggleAction}">${toggleLabel}</button>
+                <button type="button" class="btn-table-action danger btn-delete-key" data-id="${k.id}">Excluir</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+        // Bind table action buttons
+        els.adminKeysTbody.querySelectorAll(".btn-copy-invite").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            await navigator.clipboard.writeText(btn.dataset.url);
+            const orig = btn.textContent;
+            btn.textContent = "Copiado!";
+            setTimeout(() => { btn.textContent = orig; }, 1800);
+          });
+        });
+
+        els.adminKeysTbody.querySelectorAll(".btn-toggle-key").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            await window.SpotifyAccessControl.adminToggle(adminSessionMasterKey, btn.dataset.id, btn.dataset.next);
+            await refreshAdminData();
+          });
+        });
+
+        els.adminKeysTbody.querySelectorAll(".btn-delete-key").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Tem certeza que deseja excluir esta chave?")) return;
+            btn.disabled = true;
+            await window.SpotifyAccessControl.adminDelete(adminSessionMasterKey, btn.dataset.id);
+            await refreshAdminData();
+          });
+        });
+      }
+    }
+
+    // Render logs table
+    if (els.adminLogsTbody) {
+      const logs = data.recent_logs || [];
+      if (!logs.length) {
+        els.adminLogsTbody.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum acesso registrado ainda.</td></tr>';
+      } else {
+        els.adminLogsTbody.innerHTML = logs.map(l => {
+          const loc = [l.ip_city, l.ip_country].filter(Boolean).join(", ") || "Nuvem Edge";
+          return `
+            <tr>
+              <td><small>${l.created_at ? l.created_at.slice(0, 16) : "—"}</small></td>
+              <td>${escapeHtml(l.friend_name || "Amigo")}</td>
+              <td><code>${escapeHtml(l.code)}</code></td>
+              <td>${l.username_queried ? "<strong>@" + escapeHtml(l.username_queried) + "</strong>" : '<span class="text-muted">Acesso inicial</span>'}</td>
+              <td><small>${escapeHtml(loc)}</small></td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+  }
+
+  async function handleAdminCreateKey(e) {
+    e.preventDefault();
+    const name = els.adminFriendName.value.trim();
+    const code = els.adminFriendCode.value.trim();
+    const maxUses = parseInt(els.adminFriendMax.value, 10) || null;
+
+    if (!name) return;
+
+    const btn = qs("btn-create-key");
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await window.SpotifyAccessControl.adminCreate(adminSessionMasterKey, name, code, maxUses);
+      if (res.ok) {
+        els.adminFriendName.value = "";
+        els.adminFriendCode.value = "";
+        els.adminFriendMax.value = "";
+        els.adminCreateMsg.className = "admin-status-msg success";
+        els.adminCreateMsg.textContent = "Chave " + res.created.code + " criada para " + res.created.friend_name + "!";
+        els.adminCreateMsg.hidden = false;
+        await refreshAdminData();
+      } else {
+        els.adminCreateMsg.className = "admin-status-msg error";
+        els.adminCreateMsg.textContent = res.message || "Erro ao criar chave.";
+        els.adminCreateMsg.hidden = false;
+      }
+    } catch (_) {
+      els.adminCreateMsg.className = "admin-status-msg error";
+      els.adminCreateMsg.textContent = "Falha ao conectar com Cloudflare D1.";
+      els.adminCreateMsg.hidden = false;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function bindEvents() {
+    
+    // Eventos de Chave de Acesso
+    if (els.btnValidateKey) {
+      els.btnValidateKey.addEventListener("click", () => handleKeyValidation());
+    }
+    if (els.inputAccessKey) {
+      els.inputAccessKey.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleKeyValidation();
+        }
+      });
+    }
+    if (els.btnChangeAccessKey) {
+      els.btnChangeAccessKey.addEventListener("click", () => {
+        window.SpotifyAccessControl.clearSession();
+        renderAccessState();
+        if (els.inputAccessKey) {
+          els.inputAccessKey.value = "";
+          els.inputAccessKey.focus();
+        }
+      });
+    }
+
+    // Eventos do Modal Admin
+    if (els.btnOpenAdmin) {
+      els.btnOpenAdmin.addEventListener("click", openAdminModal);
+    }
+    if (els.btnCloseAdmin) {
+      els.btnCloseAdmin.addEventListener("click", closeAdminModal);
+    }
+    if (els.btnAdminLogin) {
+      els.btnAdminLogin.addEventListener("click", handleAdminLogin);
+    }
+    if (els.adminMasterInput) {
+      els.adminMasterInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleAdminLogin();
+        }
+      });
+    }
+    if (els.btnRefreshAdmin) {
+      els.btnRefreshAdmin.addEventListener("click", refreshAdminData);
+    }
+    if (els.adminCreateForm) {
+      els.adminCreateForm.addEventListener("submit", handleAdminCreateKey);
+    }
+
     els.providerTabs.querySelectorAll("[data-provider]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.openProvider = btn.dataset.provider;
@@ -1441,6 +1814,37 @@
     els.providerTabs = qs("provider-tabs");
     els.openProviderForm = qs("open-provider-form");
     els.inputOpenUsername = qs("input-open-username");
+    // Elementos de controle de acesso de amigos
+    els.accessBadgeRow = qs("access-badge-row");
+    els.accessFriendName = qs("access-friend-name");
+    els.accessCodeBadge = qs("access-code-badge");
+    els.btnChangeAccessKey = qs("btn-change-access-key");
+    els.accessKeyBox = qs("access-key-box");
+    els.inputAccessKey = qs("input-access-key");
+    els.btnValidateKey = qs("btn-validate-key");
+    els.accessStatusMsg = qs("access-status-msg");
+    els.stepConnectBox = qs("step-connect-box");
+    // Elementos do Modal Admin
+    els.btnOpenAdmin = qs("btn-open-admin");
+    els.adminModal = qs("admin-modal");
+    els.btnCloseAdmin = qs("btn-close-admin");
+    els.adminLoginView = qs("admin-login-view");
+    els.adminDashboardView = qs("admin-dashboard-view");
+    els.adminMasterInput = qs("admin-master-input");
+    els.btnAdminLogin = qs("btn-admin-login");
+    els.adminLoginError = qs("admin-login-error");
+    els.adminStatKeys = qs("admin-stat-keys");
+    els.adminStatActive = qs("admin-stat-active");
+    els.adminStatBlocked = qs("admin-stat-blocked");
+    els.adminStatUses = qs("admin-stat-uses");
+    els.adminCreateForm = qs("admin-create-form");
+    els.adminFriendName = qs("admin-friend-name");
+    els.adminFriendCode = qs("admin-friend-code");
+    els.adminFriendMax = qs("admin-friend-max");
+    els.adminCreateMsg = qs("admin-create-msg");
+    els.btnRefreshAdmin = qs("btn-refresh-admin");
+    els.adminKeysTbody = qs("admin-keys-tbody");
+    els.adminLogsTbody = qs("admin-logs-tbody");
     els.btnToggleMonthOpt = qs("btn-toggle-month-opt");
     els.monthOptWrap = qs("month-opt-wrap");
     els.inputOpenMonth = qs("input-open-month");
@@ -1542,6 +1946,14 @@
     cacheElements();
     refreshConfigUI();
     bindEvents();
+
+    // Verifica se veio chave na URL (?key=CODIGO ou ?code=CODIGO)
+    const urlCode = window.SpotifyAccessControl.resolveUrlCode();
+    if (urlCode) {
+      await handleKeyValidation(urlCode);
+    } else {
+      renderAccessState();
+    }
 
     const params = new URLSearchParams(window.location.search);
     const urlUser = (params.get("u") || params.get("user") || "").trim();

@@ -65,23 +65,73 @@
           </div>
 
           <article class="panel-card entry-card">
-            <div class="quick-onboard-box">
+            <!-- BLOCO DE CHAVE DE ACESSO INDIVIDUAL -->
+            <div class="access-badge-row" id="access-badge-row" hidden>
+              <div class="access-user-pill">
+                <span class="access-dot"></span>
+                <span>Acesso liberado para <strong id="access-friend-name">Amigo</strong></span>
+                <code id="access-code-badge" class="mono-chip">—</code>
+              </div>
+              <button type="button" class="btn-link-action" id="btn-change-access-key">Trocar chave</button>
+            </div>
+
+            <div class="access-key-box" id="access-key-box">
+              <div class="access-key-header">
+                <span class="section-kicker">ACESSO INDIVIDUAL</span>
+                <h3>Chave de Acesso do Amigo</h3>
+                <p class="card-desc">
+                  Digite a chave exclusiva enviada pelo Matheus para desbloquear seu resumo musical.
+                </p>
+              </div>
+              <div class="access-key-inputs">
+                <div class="access-input-wrapper">
+                  <input
+                    type="text"
+                    id="input-access-key"
+                    class="form-input input-access-code"
+                    placeholder="Ex: LUCAS-2026"
+                    autocomplete="off"
+                    spellcheck="false"
+                    maxlength="30"
+                    aria-label="Chave de Acesso individual"
+                  />
+                  <button type="button" class="btn btn-primary" id="btn-validate-key">
+                    Liberar Acesso
+                  </button>
+                </div>
+                <div class="access-status-msg" id="access-status-msg" hidden></div>
+              </div>
+            </div>
+
+            <!-- PASSO 1: CONEXÃO -->
+            <div class="quick-onboard-box" id="step-connect-box">
               <div class="quick-onboard-copy">
-                <span class="section-kicker">PASSO 1 · PRIMEIRA VEZ AQUI?</span>
-                <h2>Conecte seu Spotify em 15 segundos</h2>
+                <span class="section-kicker">PASSO 1 · CONECTAR O SPOTIFY</span>
+                <h2>Conecte sua conta em 15 segundos</h2>
                 <p class="card-desc">
                   Crie sua conta grátis no ListenBrainz, clique em <strong>Connect</strong> no Spotify e volte com seu <code>@usuario</code>.
                 </p>
               </div>
-              <a
-                class="btn btn-connect-outline"
-                id="btn-connect-listenbrainz"
-                href="https://listenbrainz.org/settings/music-services/details/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                1. Conectar Spotify grátis →
-              </a>
+              <div class="step-actions-group">
+                <a
+                  class="btn btn-connect-outline"
+                  id="btn-connect-listenbrainz"
+                  href="https://listenbrainz.org/settings/music-services/details/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  1. Conectar Spotify grátis →
+                </a>
+                <a
+                  class="btn btn-ghost btn-pdf-tutorial"
+                  href="./Como_Conectar_Spotify_Maquina_do_Tempo.pdf"
+                  target="_blank"
+                  download="Como_Conectar_Spotify_Maquina_do_Tempo.pdf"
+                  id="btn-download-tutorial-pdf"
+                >
+                  📄 Baixar Passo a Passo em PDF
+                </a>
+              </div>
             </div>
 
             <form id="open-provider-form" class="provider-form" novalidate>
@@ -559,9 +609,114 @@
       <p class="footer-links">
         <a href="https://matheusantunesx123-hub.github.io/Site-Pessoal-ProgWeb-2026/maquina-do-tempo/" target="_blank" rel="noopener noreferrer">Edição do Matheus</a>
         <a href="https://github.com/matheusantunesx123-hub/maquina-do-tempo-spotify" target="_blank" rel="noopener noreferrer">Código-fonte</a>
+        <button type="button" class="footer-admin-trigger" id="btn-open-admin" title="Acesso restrito do proprietário">Painel do Matheus 🔒</button>
       </p>
     </div>
   </footer>
+
+  <!-- MODAL ADMIN (PAINEL DO MATHEUS) -->
+  <div class="admin-modal-backdrop" id="admin-modal" hidden aria-modal="true" role="dialog" aria-labelledby="admin-modal-title">
+    <div class="admin-modal-card">
+      <div class="admin-modal-header">
+        <div>
+          <span class="mono-tag">CONTROLE EDGE · CLOUDFLARE D1</span>
+          <h2 id="admin-modal-title">Painel de Controle dos Amigos</h2>
+        </div>
+        <button type="button" class="admin-close-btn" id="btn-close-admin" aria-label="Fechar painel">✕</button>
+      </div>
+
+      <!-- TELA 1: LOGIN SENHA MESTRA -->
+      <div id="admin-login-view" class="admin-view-content">
+        <p class="admin-desc">Digite a sua Senha Mestra para gerenciar senhas e auditar acessos.</p>
+        <div class="admin-form-row">
+          <input type="password" id="admin-master-input" class="form-input" placeholder="Senha mestra (ex: math)" autocomplete="current-password">
+          <button type="button" id="btn-admin-login" class="btn btn-primary">Entrar no Painel</button>
+        </div>
+        <div id="admin-login-error" class="admin-error-text" hidden></div>
+      </div>
+
+      <!-- TELA 2: DASHBOARD ADMIN -->
+      <div id="admin-dashboard-view" class="admin-view-content" hidden>
+        <!-- STATS CARDS -->
+        <div class="admin-kpi-grid">
+          <div class="admin-kpi-box">
+            <span class="admin-kpi-num" id="admin-stat-keys">0</span>
+            <span class="admin-kpi-lbl">Total de Amigos</span>
+          </div>
+          <div class="admin-kpi-box">
+            <span class="admin-kpi-num text-success" id="admin-stat-active">0</span>
+            <span class="admin-kpi-lbl">Acessos Ativos</span>
+          </div>
+          <div class="admin-kpi-box">
+            <span class="admin-kpi-num text-danger" id="admin-stat-blocked">0</span>
+            <span class="admin-kpi-lbl">Bloqueados</span>
+          </div>
+          <div class="admin-kpi-box">
+            <span class="admin-kpi-num" id="admin-stat-uses">0</span>
+            <span class="admin-kpi-lbl">Usos Totais</span>
+          </div>
+        </div>
+
+        <!-- CRIAR NOVA CHAVE -->
+        <div class="admin-section-box">
+          <h3 class="admin-subtitle">Criar Nova Chave para Amigo</h3>
+          <form id="admin-create-form" class="admin-create-grid">
+            <input type="text" id="admin-friend-name" class="form-input" placeholder="Nome do amigo (ex: Lucas Silva)" required>
+            <input type="text" id="admin-friend-code" class="form-input" placeholder="Código opcional (ex: LUCAS-2026)">
+            <input type="number" id="admin-friend-max" class="form-input" placeholder="Limite usos (vazio = ilimitado)" min="1">
+            <button type="submit" class="btn btn-primary" id="btn-create-key">+ Criar Chave</button>
+          </form>
+          <div id="admin-create-msg" class="admin-status-msg" hidden></div>
+        </div>
+
+        <!-- LISTA DE AMIGOS E STATUS -->
+        <div class="admin-section-box">
+          <div class="admin-table-head">
+            <h3 class="admin-subtitle">Amigos Cadastrados</h3>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-refresh-admin">Atualizar ⟳</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Amigo</th>
+                  <th>Chave / Código</th>
+                  <th>Status</th>
+                  <th>Usos</th>
+                  <th>Último Acesso</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="admin-keys-tbody">
+                <tr><td colspan="6" class="text-muted">Carregando chaves...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- LOGS EM TEMPO REAL -->
+        <div class="admin-section-box">
+          <h3 class="admin-subtitle">Últimos Acessos e Consultas</h3>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Data/Hora</th>
+                  <th>Amigo</th>
+                  <th>Chave</th>
+                  <th>@usuario consultado</th>
+                  <th>Cidade / País</th>
+                </tr>
+              </thead>
+              <tbody id="admin-logs-tbody">
+                <tr><td colspan="5" class="text-muted">Nenhum registro ainda.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="./config.js"></script>
   <script src="./auth.js"></script>
@@ -570,6 +725,7 @@
   <script src="./open-providers.js"></script>
   <script src="./spotify-client.js"></script>
   <script src="./exporter.js"></script>
+  <script src="./access-control.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
