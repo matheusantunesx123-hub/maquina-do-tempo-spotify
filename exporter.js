@@ -46,6 +46,66 @@
       accent2: "#B45309",
       accentInk: "#FAF8F3",
       border: "rgba(20, 25, 22, 0.15)"
+    },
+    aurora: {
+      id: "aurora",
+      name: "Cyber Emerald",
+      bg: "#060D0A",
+      bgGlow: "rgba(0, 255, 136, 0.16)",
+      bgGlow2: "rgba(56, 189, 248, 0.12)",
+      surface: "#0E1A14",
+      surface2: "#14261D",
+      ink: "#F0FDF4",
+      muted: "#86EFAC",
+      accent: "#00FF88",
+      accent2: "#38BDF8",
+      accentInk: "#021F10",
+      border: "rgba(0, 255, 136, 0.22)"
+    },
+    solaris: {
+      id: "solaris",
+      name: "Solaris Gold",
+      bg: "#120E0A",
+      bgGlow: "rgba(245, 158, 11, 0.16)",
+      bgGlow2: "rgba(251, 191, 36, 0.10)",
+      surface: "#1C1610",
+      surface2: "#271F17",
+      ink: "#FFFBEB",
+      muted: "#D97706",
+      accent: "#F59E0B",
+      accent2: "#FBBF24",
+      accentInk: "#1E1202",
+      border: "rgba(245, 158, 11, 0.22)"
+    },
+    monochrome: {
+      id: "monochrome",
+      name: "Monocromo Luxo",
+      bg: "#09090B",
+      bgGlow: "rgba(255, 255, 255, 0.10)",
+      bgGlow2: "rgba(200, 200, 200, 0.08)",
+      surface: "#18181B",
+      surface2: "#27272A",
+      ink: "#FAFAFA",
+      muted: "#A1A1AA",
+      accent: "#F4F4F5",
+      accent2: "#D4D4D8",
+      accentInk: "#09090B",
+      border: "rgba(250, 250, 250, 0.20)"
+    },
+    midnight: {
+      id: "midnight",
+      name: "Midnight Blue",
+      bg: "#090D16",
+      bgGlow: "rgba(56, 189, 248, 0.16)",
+      bgGlow2: "rgba(96, 165, 250, 0.12)",
+      surface: "#101726",
+      surface2: "#182238",
+      ink: "#F0F6FC",
+      muted: "#93C5FD",
+      accent: "#38BDF8",
+      accent2: "#60A5FA",
+      accentInk: "#041527",
+      border: "rgba(56, 189, 248, 0.22)"
     }
   };
 
@@ -257,7 +317,7 @@
     const isStory = H > 1600;
     const padX = 68;
     const topY = isStory ? 112 : 68;
-    const bottomY = H - (isStory ? 132 : 76);
+    const bottomY = H - (isStory ? 154 : 98);
 
     ctx.fillStyle = theme.muted;
     ctx.font = '600 19px "JetBrains Mono", monospace';
@@ -291,7 +351,7 @@
     ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(handle, padX, bottomY);
+    ctx.fillText(handle, padX, bottomY - 4);
 
     const srcTag = report.isDemo
       ? "MODO DEMONSTRAÇÃO"
@@ -299,7 +359,30 @@
     ctx.fillStyle = theme.muted;
     ctx.font = '500 18px "JetBrains Mono", monospace';
     ctx.textAlign = "right";
-    ctx.fillText(srcTag, W - padX, bottomY);
+    ctx.fillText(srcTag, W - padX, bottomY - 4);
+
+    // ==========================================================
+    // ASSINATURA OFICIAL DO CRIADOR (Matheus Antunes · @Antuness.matheus)
+    // ==========================================================
+    const badgeW = isStory ? 520 : 470;
+    const badgeH = isStory ? 60 : 48;
+    const badgeY = bottomY + (isStory ? 24 : 16);
+    const badgeX = (W - badgeW) / 2;
+
+    // Fundo Glassmorphism com borda fina
+    fillRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 12, theme.surface, theme.border);
+
+    // Linha 1: Menção de criação
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = isStory ? '600 14px "JetBrains Mono", monospace' : '600 12px "JetBrains Mono", monospace';
+    ctx.fillStyle = theme.muted;
+    ctx.fillText("✦ CRIADO POR MATHEUS ANTUNES", W / 2, badgeY + (isStory ? 18 : 15));
+
+    // Linha 2: Perfil do Instagram
+    ctx.font = isStory ? '700 18px "Plus Jakarta Sans", sans-serif' : '700 15px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = theme.accent;
+    ctx.fillText("Instagram: @Antuness.matheus", W / 2, badgeY + (isStory ? 41 : 33));
 
     return {
       padX,

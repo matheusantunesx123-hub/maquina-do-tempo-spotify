@@ -412,6 +412,20 @@
       els.monthPills.appendChild(btn);
     });
 
+    if (els.selectStudioMonth) {
+      els.selectStudioMonth.innerHTML = "";
+      bundle.tabs.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = `${t.label} (${t.meta || ""})`;
+        opt.selected = t.id === state.activeReportId;
+        els.selectStudioMonth.appendChild(opt);
+      });
+      if (els.groupStudioMonth) {
+        els.groupStudioMonth.hidden = bundle.tabs.length <= 1;
+      }
+    }
+
     const idx = bundle.tabs.findIndex((t) => t.id === state.activeReportId);
     els.btnPrevMonth.disabled = idx < 0 || idx >= bundle.tabs.length - 1;
     els.btnNextMonth.disabled = idx <= 0;
@@ -1554,20 +1568,111 @@
     els.openProviderForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       stopSyncPolling();
-      const monthVal = els.monthOptWrap && !els.monthOptWrap.hidden ? els.inputOpenMonth.value : null;
+      const monthVal = els.inputOpenMonth && els.inputOpenMonth.value ? els.inputOpenMonth.value.trim() : null;
       await loadOpenProvider(state.openProvider, els.inputOpenUsername.value, monthVal);
     });
 
-    els.btnToggleMonthOpt.addEventListener("click", () => {
-      const willOpen = els.monthOptWrap.hidden;
-      els.monthOptWrap.hidden = !willOpen;
-      els.btnToggleMonthOpt.setAttribute("aria-expanded", String(willOpen));
-      if (!willOpen) {
-        els.inputOpenMonth.value = "";
-      } else {
-        els.inputOpenMonth.focus();
+    function formatMonthYearLabel(yearMonthStr) {
+      if (!yearMonthStr) return "Mais recente";
+      const parts = String(yearMonthStr).split("-");
+      if (parts.length < 2) return yearMonthStr;
+      const y = parts[0];
+      const m = parts[1];
+      const monthNames = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
+      const mNum = parseInt(m, 10);
+      if (mNum >= 1 && mNum <= 12) {
+        return `${monthNames[mNum - 1]}/${y}`;
       }
-    });
+      return yearMonthStr;
+    }
+
+    function getPreviousMonthString() {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
+    }
+
+    if (els.btnMonthChipRecent) {
+      els.btnMonthChipRecent.addEventListener("click", () => {
+        if (els.inputOpenMonth) els.inputOpenMonth.value = "";
+        if (els.monthOptWrap) els.monthOptWrap.hidden = true;
+        if (els.selectedMonthBadge) els.selectedMonthBadge.textContent = "Mais recente";
+        [els.btnMonthChipRecent, els.btnMonthChipPrev, els.btnMonthChipCustom].forEach((b) => {
+          if (b) b.classList.toggle("is-active", b === els.btnMonthChipRecent);
+        });
+      });
+    }
+
+    if (els.btnMonthChipPrev) {
+      els.btnMonthChipPrev.addEventListener("click", () => {
+        const prevM = getPreviousMonthString();
+        if (els.inputOpenMonth) els.inputOpenMonth.value = prevM;
+        if (els.monthOptWrap) els.monthOptWrap.hidden = true;
+        if (els.selectedMonthBadge) els.selectedMonthBadge.textContent = formatMonthYearLabel(prevM);
+        [els.btnMonthChipRecent, els.btnMonthChipPrev, els.btnMonthChipCustom].forEach((b) => {
+          if (b) b.classList.toggle("is-active", b === els.btnMonthChipPrev);
+        });
+      });
+    }
+
+    if (els.btnMonthChipCustom) {
+      els.btnMonthChipCustom.addEventListener("click", () => {
+        if (els.monthOptWrap) {
+          els.monthOptWrap.hidden = false;
+          if (els.inputOpenMonth) {
+            if (!els.inputOpenMonth.value) {
+              els.inputOpenMonth.value = getPreviousMonthString();
+            }
+            els.inputOpenMonth.focus();
+            if (els.selectedMonthBadge) els.selectedMonthBadge.textContent = formatMonthYearLabel(els.inputOpenMonth.value);
+          }
+        }
+        [els.btnMonthChipRecent, els.btnMonthChipPrev, els.btnMonthChipCustom].forEach((b) => {
+          if (b) b.classList.toggle("is-active", b === els.btnMonthChipCustom);
+        });
+      });
+    }
+
+    if (els.inputOpenMonth) {
+      els.inputOpenMonth.addEventListener("change", () => {
+        if (els.inputOpenMonth.value) {
+          if (els.selectedMonthBadge) els.selectedMonthBadge.textContent = formatMonthYearLabel(els.inputOpenMonth.value);
+          [els.btnMonthChipRecent, els.btnMonthChipPrev, els.btnMonthChipCustom].forEach((b) => {
+            if (b) b.classList.toggle("is-active", b === els.btnMonthChipCustom);
+          });
+        }
+      });
+    }
+
+    if (els.btnClearMonth) {
+      els.btnClearMonth.addEventListener("click", () => {
+        if (els.inputOpenMonth) els.inputOpenMonth.value = "";
+        if (els.monthOptWrap) els.monthOptWrap.hidden = true;
+        if (els.selectedMonthBadge) els.selectedMonthBadge.textContent = "Mais recente";
+        [els.btnMonthChipRecent, els.btnMonthChipPrev, els.btnMonthChipCustom].forEach((b) => {
+          if (b) b.classList.toggle("is-active", b === els.btnMonthChipRecent);
+        });
+      });
+    }
+
+    if (els.btnToggleMonthOpt) {
+      els.btnToggleMonthOpt.addEventListener("click", () => {
+        const willOpen = els.monthOptWrap.hidden;
+        els.monthOptWrap.hidden = !willOpen;
+        els.btnToggleMonthOpt.setAttribute("aria-expanded", String(willOpen));
+        if (!willOpen) {
+          els.inputOpenMonth.value = "";
+        } else {
+          els.inputOpenMonth.focus();
+        }
+      });
+    }
 
     els.btnSyncRetry.addEventListener("click", async () => {
       const target = state.syncPollTarget || {
@@ -1797,6 +1902,14 @@
     els.btnDownloadMain.addEventListener("click", handleDownloadMain);
     els.btnDownloadSlide.addEventListener("click", handleDownloadCurrentSlide);
     els.btnShareImage.addEventListener("click", handleShareImage);
+
+    if (els.selectStudioMonth) {
+      els.selectStudioMonth.addEventListener("change", () => {
+        if (els.selectStudioMonth.value && state.bundle) {
+          selectReport(els.selectStudioMonth.value);
+        }
+      });
+    }
   }
 
   function cacheElements() {
@@ -1940,6 +2053,13 @@
     els.previewStatus = qs("preview-status");
     els.carouselStrip = qs("carousel-strip");
     els.previewCanvas = qs("export-preview-canvas");
+    els.selectedMonthBadge = qs("selected-month-badge");
+    els.btnMonthChipRecent = qs("btn-month-chip-recent");
+    els.btnMonthChipPrev = qs("btn-month-chip-prev");
+    els.btnMonthChipCustom = qs("btn-month-chip-custom");
+    els.btnClearMonth = qs("btn-clear-month");
+    els.groupStudioMonth = qs("group-studio-month");
+    els.selectStudioMonth = qs("select-studio-month");
   }
 
   async function init() {

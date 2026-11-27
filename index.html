@@ -162,23 +162,53 @@
                   </button>
                 </div>
 
-                <div class="aux-links">
-                  <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-month-opt" aria-expanded="false">
-                    Escolher mês
-                  </button>
-                  <button type="button" class="btn btn-ghost btn-small" id="btn-try-demo">
-                    Ver exemplo
-                  </button>
-                  <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-lastfm-key" hidden>
-                    API Key Last.fm
-                  </button>
+                <!-- Seletor Rápido de Mês da Análise -->
+                <div class="month-selector-box">
+                  <div class="month-selector-header">
+                    <span class="control-label">📅 Mês da análise</span>
+                    <span class="month-selector-badge" id="selected-month-badge">Mais recente</span>
+                  </div>
+                  <div class="month-quick-chips" id="month-quick-chips">
+                    <button type="button" class="chip-btn is-active" id="btn-month-chip-recent" data-choice="recent">
+                      ⚡ Mais recente
+                    </button>
+                    <button type="button" class="chip-btn" id="btn-month-chip-prev" data-choice="prev">
+                      ⏮️ Mês anterior
+                    </button>
+                    <button type="button" class="chip-btn" id="btn-month-chip-custom" data-choice="custom">
+                      📅 Outro mês...
+                    </button>
+                  </div>
+                  <div class="month-opt-wrap" id="month-opt-wrap" hidden>
+                    <div class="inline-field">
+                      <input type="month" id="input-open-month" class="text-input" aria-label="Escolha mês e ano" />
+                      <button type="button" class="btn btn-small btn-ghost" id="btn-clear-month">Limpar</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="month-opt-wrap" id="month-opt-wrap" hidden>
-                <label class="control-label" for="input-open-month">Mês específico (opcional)</label>
-                <input type="month" id="input-open-month" class="text-input" />
-              </div>
+                <div class="entry-aux-row">
+                  <div class="segmented provider-tabs compact-tabs" id="provider-tabs" role="tablist" aria-label="Escolha o serviço conectado ao seu Spotify">
+                    <button type="button" class="seg-btn is-active" data-provider="listenbrainz" role="tab" aria-selected="true">
+                      ListenBrainz
+                    </button>
+                    <button type="button" class="seg-btn" data-provider="lastfm" role="tab" aria-selected="false">
+                      Last.fm
+                    </button>
+                  </div>
+
+                  <div class="aux-links">
+                    <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-month-opt" aria-expanded="false" hidden>
+                      Escolher mês
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-small" id="btn-try-demo">
+                      Ver exemplo
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-small" id="btn-toggle-lastfm-key" hidden>
+                      API Key Last.fm
+                    </button>
+                  </div>
+                </div>
             </form>
 
             <div class="config-drawer" id="lastfm-key-drawer" hidden>
@@ -303,9 +333,9 @@
             </div>
             <div class="month-steppers">
               <div class="month-travel" id="month-travel-wrap" hidden>
-                <label class="sr-only" for="input-travel-month">Escolher outro mês para carregar</label>
-                <input type="month" id="input-travel-month" class="text-input travel-input" />
-                <button type="button" class="btn btn-small" id="btn-travel-month">Carregar mês</button>
+                <span class="travel-badge">🚀 Viagem no tempo:</span>
+                <input type="month" id="input-travel-month" class="text-input travel-input" aria-label="Escolha outro mês para viajar" />
+                <button type="button" class="btn btn-primary btn-small" id="btn-travel-month">Viajar para o Mês</button>
               </div>
               <button type="button" class="btn btn-icon" id="btn-prev-month" aria-label="Período anterior">
                 <span aria-hidden="true">←</span><span>Anterior</span>
@@ -554,6 +584,22 @@
                     <span class="swatch-pair"><i style="background:#F4EFE4"></i><i style="background:#15803D"></i></span>
                     <span>Cartaz Editorial</span>
                   </button>
+                  <button type="button" class="theme-btn" data-theme="aurora">
+                    <span class="swatch-pair"><i style="background:#060D0A"></i><i style="background:#00FF88"></i></span>
+                    <span>Cyber Emerald</span>
+                  </button>
+                  <button type="button" class="theme-btn" data-theme="solaris">
+                    <span class="swatch-pair"><i style="background:#120E0A"></i><i style="background:#F59E0B"></i></span>
+                    <span>Solaris Gold</span>
+                  </button>
+                  <button type="button" class="theme-btn" data-theme="monochrome">
+                    <span class="swatch-pair"><i style="background:#09090B"></i><i style="background:#FAFAFA"></i></span>
+                    <span>Monocromo Luxo</span>
+                  </button>
+                  <button type="button" class="theme-btn" data-theme="midnight">
+                    <span class="swatch-pair"><i style="background:#090D16"></i><i style="background:#38BDF8"></i></span>
+                    <span>Midnight Blue</span>
+                  </button>
                 </div>
               </div>
 
@@ -563,12 +609,31 @@
                   <input type="text" id="input-handle" class="text-input" maxlength="32" placeholder="@seu_arroba" value="@meu_spotify" />
                 </div>
 
-                <div class="control-group" id="group-show-metrics">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="chk-show-metrics" checked />
-                    <span>Exibir minutos e plays</span>
-                  </label>
+                <div class="control-group" id="group-studio-month">
+                  <label class="control-label" for="select-studio-month">Mês da arte</label>
+                  <select id="select-studio-month" class="text-input select-input" aria-label="Escolher mês da arte"></select>
                 </div>
+              </div>
+
+              <div class="control-group" id="group-show-metrics">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="chk-show-metrics" checked />
+                  <span>Exibir minutos e plays</span>
+                </label>
+              </div>
+
+              <div class="creator-credit-badge">
+                <div class="creator-badge-left">
+                  <span class="creator-badge-icon">⚡</span>
+                  <div class="creator-badge-info">
+                    <span class="creator-badge-label">Criado por Matheus Antunes</span>
+                    <span class="creator-badge-sub">Marque nos Stories ao compartilhar:</span>
+                  </div>
+                </div>
+                <a href="https://instagram.com/Antuness.matheus" target="_blank" rel="noopener" class="creator-ig-btn" title="Abrir perfil no Instagram">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                  <span>@Antuness.matheus</span>
+                </a>
               </div>
 
               <div class="export-actions">
